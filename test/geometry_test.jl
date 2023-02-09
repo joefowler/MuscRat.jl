@@ -51,6 +51,6 @@ end
         @test path(b, Line([1,1,0])) ≈ 2sqrt(2)
         @test path(b, Line([1,0,0])) ≈ 2
         @test path(b, Line([0,0,1])) ≈ 4
-        path(box, Line([.5,1,0],[.5,0,0])) ≈ sqrt(5)
+        path(b, Line([.5,1,0],[.5,0,0])) ≈ sqrt(5)
     end
 end
