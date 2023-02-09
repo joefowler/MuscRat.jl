@@ -18,6 +18,7 @@ struct Line
     end
 end
 Line(n::AbstractVector{T}) where {T<:Real} = Line(n, zero(n))
+point(line::Line, t::Real) = line.n*t+line.pt
 
 abstract type Solid end
 
@@ -92,9 +93,9 @@ function path(cyl::HCylinder, line::Line)
 
     # Find full points x1 and x2 (with x1[1] ≤ x2[1]) where line crosses the ∞ cylinder
     halfht = 0.5*cyl.height
-    x1 = line.n*t1+line.pt
+    x1 = point(line, t1)
     x1[1] ≥ halfht && return 0.0
-    x2 = line.n*t2+line.pt
+    x2 = point(line, t2)
     x2[1] ≤ -halfht && return 0.0
 
     # Step 3.1: if x1 is outside the finite cylinder, move it to point on the x=-h/2 boundary
