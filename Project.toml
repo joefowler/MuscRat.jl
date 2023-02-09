@@ -1,0 +1,4 @@
+name = "MuscRat"
+uuid = "0dab28a1-6acb-41ea-811d-cd80e1b3df67"
+authors = ["Joe Fowler <drjoefowler@gmail.com>"]
+version = "0.1.0"
