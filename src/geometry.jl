@@ -57,6 +57,53 @@ function path(box::Box, line::Line)
     return 0.0
 end
 
+"""
+    path(obj::Solid, line::Line)
+
+Return the path length of `line` through the object `obj`, or 0 if the line doesn't
+intersect the object.
+"""
 function path(cyl::HCylinder, line::Line)
-    return 0.0
+    # Step 0: If the line is parallel to the x-axis, special case.
+    if line.n[2]==0 && line.n[3] == 0
+        if line.pt[2]^2 + line.pt[3]^2 ≤ cyl.rad2
+            return cyl.height
+        end
+        return 0.0
+    end
+
+    # Step 1: At which 0, 1, or 2 points does line intersect the infinitely long version of cyl?
+    # Solving a quadratic equation
+    a = line.n[2]^2+line.n[3]^2
+    b = 2*(line.pt[2]*line.n[2] + line.pt[3]*line.n[3])
+    c = line.pt[2]^2+line.pt[3]^2-cyl.rad2
+    disc = b - 4a*c
+    disc ≤ 0 && return 0 # negative or 0 discriminant means doesn't have finite-length intersection
+
+    # Step 2: Solve quadratic. Find the points x1 and x2 where line enters/leaves the ∞ cylinder.
+    avgt = -b/2a
+    difft = sqrt(disc)/2a
+    t1 = avgt-difft
+    t2 = avgt+difft
+    # Make sure that t1 has the lesser x component of the two. If not, swap.
+    if t1[1] > t2[1]
+        t1, t2 = t2, t1
+    end
+
+    # Find full points x1 and x2 (with x1[1] ≤ x2[1]) where line crosses the ∞ cylinder
+    halfht = 0.5*cyl.height
+    x1 = line.n*t1+line.pt
+    x1[1] ≥ halfht && return 0.0
+    x2 = line.n*t2+line.pt
+    x2[1] ≤ -halfht && return 0.0
+
+    # Step 3.1: if x1 is outside the finite cylinder, move it to point on the x=-h/2 boundary
+    if x1[1] < -halfht
+        t1 = -(line.pt[1]+halfht)/line.n[1]
+    end
+    # Step 3.2: if x2 is outside the finite cylinder, move it to point on the x=+h/2 boundary
+    if x2[1] > +halfht
+        t2 = -(line.pt[1]-halfht)/line.n[1]
+    end
+    abs(t2-t1)
 end
