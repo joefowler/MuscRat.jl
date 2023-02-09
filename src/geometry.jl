@@ -54,6 +54,15 @@ Returns the volume of a solid object
 volume(c::HCylinder) = π*c.rad2*c.height
 volume(b::Box) = prod(b.sides)
 
+"""
+    smallest_radius(obj::Solid)
+
+Returns the radius of the smallest cylinder that, when centered on the origin at an arbitrary orientation,
+will contain every point of the object `obj`.
+"""
+smallest_radius(c::HCylinder) = sqrt(c.radius^2+(c.height*0.5)^2)
+smallest_radius(b::Box) = norm(b.sides)/2
+
 function path(box::Box, line::Line)
     crossings = []
     for i=1:3

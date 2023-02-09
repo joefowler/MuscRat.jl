@@ -1,7 +1,7 @@
 module MuscRat
 
 export Line, volume, Box, HCylinder
-export path
+export path, smallest_radius
 
 include("geometry.jl")
 
