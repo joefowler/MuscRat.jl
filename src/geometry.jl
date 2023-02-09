@@ -55,7 +55,30 @@ volume(c::HCylinder) = π*c.rad2*c.height
 volume(b::Box) = prod(b.sides)
 
 function path(box::Box, line::Line)
-    return 0.0
+    crossings = []
+    for i=1:3
+        line.n[i]==0 && continue
+        for s in [-0.5, +0.5]*box.sides[i]
+            t = (s-line.pt[i])/line.n[i]
+            x = point(line, t)
+            inrange = true
+            for j=1:3
+                j==i && continue
+                if abs(x[j]) > box.sides[j]*0.5
+                    inrange = false
+                    break
+                end
+            end
+            if inrange
+                push!(crossings, x)
+            end
+        end
+    end
+    length(crossings) == 0 && return 0.0
+    # There should be exactly 2 good points.
+    # The same 2 points can appear 2x each, though, if they are at the edges or corners of the box.
+    # Even in that "corner case", the first 2 are guaranteed to be opposite one another.
+    norm(crossings[1]-crossings[2])
 end
 
 """
