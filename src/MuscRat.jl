@@ -1,6 +1,7 @@
 module MuscRat
 
-export Box, HCylinder, Line
+export Line, volume, Box, HCylinder
+
 include("geometry.jl")
 
 greet() = print("Hello World!")
