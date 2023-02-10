@@ -112,3 +112,32 @@ function generate(mg::CRMuonGenerator, N::Integer)
     p = exp.(logp)
     p, cosθ
 end
+
+
+function path_values(obj::Solid, cosθ::AbstractVector)
+    tube_radius = smallest_radius(obj)
+    N = length(cosθ)
+    L = Array{Float64}(undef, N)
+    for i=1:N
+        # Random azimuthal angle
+        ϕ = 2π*rand()
+        sϕ = sin(ϕ)
+        cϕ = cos(ϕ)
+        cθ = cosθ[i]
+        sθ = sqrt(1-cθ^2)
+        n = [sθ*cϕ, sθ*sϕ, -cθ]
+
+        # Random position in the tube plane
+        r = sqrt(rand())*tube_radius
+        ψ = 2π*rand()
+        x0 = r.*cos.(ψ)
+        y0 = r.*sin.(ψ)
+
+        # Where does the path cross the plane ⟂ the tube passing through the origin?
+        origin = [cϕ*cθ*x0-sϕ*y0, sϕ*cθ*x0+cϕ*y0, -sθ*x0]
+
+        line = Line(n, origin)
+        L[i] = path(obj, line)
+    end
+    L
+end
