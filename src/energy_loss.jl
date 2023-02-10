@@ -10,10 +10,11 @@ Particle Properties_).
 """
 function Eloss_function(material=:Silicon, particle=:µ)
     masses = Dict(
-        :µ => 105.658    # MeV/c^2,
-        :e => 0.5109989  # MeV/c^2,
-        :p => 938.272    # MeV/c^2
-        )
+        :µ => 105.65837,  # MeV/c^2
+        :π => 139.5706,   # MeV/c^2
+        :e => 0.5109989,  # MeV/c^2
+        :p => 938.27208,  # MeV/c^2
+    )
     M = masses[particle]
     K = 0.307075     # MeV g^-1 cm^2
     if material == :Silicon
