@@ -63,6 +63,14 @@ will contain every point of the object `obj`.
 smallest_radius(c::HCylinder) = sqrt(c.radius^2+(c.height*0.5)^2)
 smallest_radius(b::Box) = norm(b.sides)/2
 
+"""
+    tube_area(obj::Solid)
+
+Returns the cross-sectional area of the smallest-radius tube that, if centered on `obj`, will
+always enclose the object, regardless of the tube orientation.
+"""
+tube_area(obj::Solid) = π*smallest_radius(obj)^2
+
 function path(box::Box, line::Line)
     crossings = []
     for i=1:3
