@@ -13,6 +13,11 @@ using MuscRat
     @test volume(hc) ≈ 80π
     @test smallest_radius(hc) ≈ sqrt(4^2+2.5^2)
 
+    s = Sphere(4)
+    @test s.rad2 == 16.0
+    @test volume(s) ≈ 256π/3
+    @test smallest_radius(s) ≈ 4.0
+
     box_vector = Box([3, 4, 5])
     box_tuple = Box(3, 4, 5.0)
     @test length(box_vector.sides) == 3
@@ -53,6 +58,19 @@ end
         @test path(b, Line([1,1,0])) ≈ 2sqrt(2)
         @test path(b, Line([1,0,0])) ≈ 2
         @test path(b, Line([0,0,1])) ≈ 4
-        path(b, Line([.5,1,0],[.5,0,0])) ≈ sqrt(5)
+        @test path(b, Line([.5,1,0],[.5,0,0])) ≈ sqrt(5)
+    end
+
+    @testset "Sphere" begin
+        s = Sphere(4)
+        @test path(s, Line(randn(3))) ≈ 8
+        for offset in 1:6
+            p = path(s, Line([1,0,0], [0,offset,0]))
+            if offset ≥ s.radius
+                @test p == 0.0
+            else
+                @test p ≈ 2sqrt(s.rad2-offset^2)
+            end
+        end
     end
 end

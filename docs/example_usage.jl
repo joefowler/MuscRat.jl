@@ -4,9 +4,10 @@ using PyPlot, MuscRat, Statistics
 b3 = Box(.5, .5, .15)
 b1 = Box(.5, .5, .05)
 
-# Make 3 "NaI" objects: a cylinder of the true shape, and 2 boxes of same volume
+# Make 4 "NaI" objects: a cylinder of the true shape, plus a sphere and 2 boxes of same volume
 NaI = HCylinder(3.81, 7.62)
 v = volume(NaI)
+NaISphere = Sphere((3/(4π)*v)^(1/3))
 w = sqrt(v/7.62)
 NaBtall = Box(w, w, 7.62)
 NaBfat = Box(7.62, 7.62, v/7.62^2)
@@ -15,6 +16,7 @@ solids = Dict(
     :thick_tkid => b3,
     :thin_tkid => b1,
     :cylinder => NaI,
+    :sphere => NaISphere,
     :tall_scint => NaBtall,
     :fat_scint => NaBfat
 )
@@ -45,23 +47,46 @@ names = Dict(
     :thick_tkid => "1.5 mm TKID",
     :thin_tkid => "0.5 mm TKID",
     :cylinder => "NaI cylinder",
+    :sphere => "NaI sphere",
     :tall_scint => "NaI tall box",
     :fat_scint => "NaI fat box"
 )
 
-function plot_NaI_results(solids, loss)
+objcolors = Dict(
+    :thick_tkid => "red",
+    :thin_tkid => "orange",
+    :cylinder => "black",
+    :sphere => "brown",
+    :tall_scint => "blue",
+    :fat_scint => "cyan"
+)
+
+function plot_NaI_results(solids, loss, smear=0.0)
     nbins = 500
     brange = [0,100]
     db = (brange[2]-brange[1])/nbins
     clf()
-    for k in (:cylinder, :tall_scint, :fat_scint)
-        weight = generator.flux*MuscRat.tube_area(solids[k])/(N*db)
-        c, _, _ = hist(loss[k], 500, [0,100], histtype="step", weights=weight.+zero(loss[k]), label=names[k])
-        @show length(loss[k])*weight*db, sum(c)*db
-    end
-    title("Bethe-Bloch µ± loss in NaI of 3 volumes, equal shape")
+    ax1 = subplot(211)
+    title("Geometric paths for CR µ± through NaI of 4 shapes of equal volume")
+    xlabel("Path through scintillator (cm)")
+    ax2 = subplot(212)
+    title("Bethe-Bloch CR µ± loss in NaI of 4 shapes of equal volume")
     xlabel("Energy lost in scintillator (MeV)")
     ylabel("Counts per MeV per second")
+
+    for k in (:cylinder, :sphere, :tall_scint, :fat_scint)
+        sca(ax1)
+        tp = total_paths[k]
+        lw = k == :cylinder ? 2 : 1
+        c, _, _ = hist(tp[tp.>0], 600, [0,12], histtype="step", color=objcolors[k], label=names[k], lw=lw)
+        sca(ax2)
+        weight = generator.flux*MuscRat.tube_area(solids[k])/(N*db)
+        Nv = length(loss[k])
+        L = loss[k] .* exp.(smear*randn(Nv))
+        c, _, _ = hist(L, 500, [0,100], histtype="step", weights=weight.+zero(loss[k]), 
+                        color=objcolors[k], label=names[k], lw=lw)
+        @show Nv*weight*db, sum(c)*db
+    end
     legend()
     tight_layout()
     nothing

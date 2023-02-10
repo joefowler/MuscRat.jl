@@ -23,6 +23,18 @@ point(line::Line, t::Real) = line.n*t+line.pt
 abstract type Solid end
 
 """
+    Sphere(radius)
+
+Represent a sphere of radius `radius`.
+"""
+struct Sphere <: Solid
+    radius::Float64
+    rad2::Float64
+
+    Sphere(r) = new(r, r^2)
+end
+
+"""
     HCylinder(radius, height)
 
 Represent a cylinder of radius `radius` and `height`, oriented along the X axis.
@@ -51,6 +63,7 @@ Box(args...) = Box([args...])
 
 Returns the volume of a solid object
 """
+volume(s::Sphere) = (4/3)*π*(s.radius^3)
 volume(c::HCylinder) = π*c.rad2*c.height
 volume(b::Box) = prod(b.sides)
 
@@ -60,6 +73,7 @@ volume(b::Box) = prod(b.sides)
 Returns the radius of the smallest cylinder that, when centered on the origin at an arbitrary orientation,
 will contain every point of the object `obj`.
 """
+smallest_radius(s::Sphere) = s.radius
 smallest_radius(c::HCylinder) = sqrt(c.radius^2+(c.height*0.5)^2)
 smallest_radius(b::Box) = norm(b.sides)/2
 
@@ -147,4 +161,21 @@ function path(cyl::HCylinder, line::Line)
         t2 = -(line.pt[1]-halfht)/line.n[1]
     end
     abs(t2-t1)
+end
+
+function path(s::Sphere, line::Line)
+    # Find the points (if any) where t allows ||pt+n⋅t|| = r^2
+    # a = 1.0
+    b = 2dot(line.n, line.pt)
+    c = dot(line.pt, line.pt) - s.rad2
+    disc = b - 4c
+    disc ≤ 0 && return 0 # negative or 0 discriminant means doesn't have finite-length intersection
+
+    # avgt = -b/2
+    # difft = sqrt(disc)/2
+    # t1 = avgt-difft
+    # t2 = avgt+difft
+
+    # The distance between these points is the abs difference of the t values
+    sqrt(disc)
 end
