@@ -21,6 +21,7 @@ struct CRMuonGenerator
     Nang::Int
     Pmin::Float64
     Pmax::Float64
+    flux::Float64  # units are counts cm^-2 s^-1 (energy and solid angle already integrated over)
 
     logPlim::LinRange
     cosθlim::LinRange
@@ -47,32 +48,27 @@ struct CRMuonGenerator
         end
 
         # Integrate s over all boxes
-        for i=1:Np
-            for j=1:Nang
-                prob[i,j] = mean(s[i:i+1, j:j+1])
-            end
+        for i=1:Np, j=1:Nang
+            prob[i,j] = mean(s[i:i+1, j:j+1])
         end
-        dcos = cosθlim[2]-cosθlim[1]
-        dlogP = logPlim[2]-logPlim[1]
-        integrated_spectrum = sum(prob)*(dcos*dlogP)
-        @show 2π*integrated_spectrum
+        Δcos = cosθlim[2]-cosθlim[1]
+        ΔlogP = logPlim[2]-logPlim[1]
+        total_flux = 2π*sum(prob)*(Δcos*ΔlogP)
         prob ./= sum(prob)
         boxCDF = cumsum(vec(prob))  # runs through first column, then 2nd, etc.
 
         # Now create the 4 points for each box
         pij = Array{Float64}(undef, Np*Nang, 4)
-        for j=1:Nang
-            for i=1:Np
-                k=Np*(j-1)+i
-                pij[k,1] = s[i,j]
-                pij[k,2] = s[i+1,j]
-                pij[k,3] = s[i,j+1]
-                pij[k,4] = s[i+1,j+1]
-                pij[k,:] ./= mean(pij[k,:])
-            end
+        for j=1:Nang, i=1:Np
+            k=Np*(j-1)+i
+            pij[k,1] = s[i,j]
+            pij[k,2] = s[i+1,j]
+            pij[k,3] = s[i,j+1]
+            pij[k,4] = s[i+1,j+1]
+            pij[k,:] ./= mean(pij[k,:])
         end
 
-        new(Np, Nang, Pmin, Pmax, logPlim, cosθlim, prob, boxCDF, pij)
+        new(Np, Nang, Pmin, Pmax, total_flux, logPlim, cosθlim, prob, boxCDF, pij)
     end
 end
 
@@ -85,7 +81,7 @@ angle (thus cosθ=1 means vertical, and 0 means horizontal).
 """
 function generate(mg::CRMuonGenerator, N::Integer)
     boxid = [findfirst(x->x>r, mg.boxCDF) for r in rand(N)]
-    
+
     cosθ = Array{Float64}(undef, N)
     logp = Array{Float64}(undef, N)
     dθ = mg.cosθlim[2]-mg.cosθlim[1]
