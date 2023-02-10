@@ -55,9 +55,9 @@ function plot_NaI_results(solids, loss)
     db = (brange[2]-brange[1])/nbins
     clf()
     for k in (:cylinder, :tall_scint, :fat_scint)
-        weight = db*generator.flux*MuscRat.tube_area(solids[k])/N
+        weight = generator.flux*MuscRat.tube_area(solids[k])/(N*db)
         c, _, _ = hist(loss[k], 500, [0,100], histtype="step", weights=weight.+zero(loss[k]), label=names[k])
-        @show length(loss[k])*weight/db, sum(c)*db
+        @show length(loss[k])*weight*db, sum(c)*db
     end
     title("Bethe-Bloch µ± loss in NaI of 3 volumes, equal shape")
     xlabel("Energy lost in scintillator (MeV)")
