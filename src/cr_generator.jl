@@ -123,14 +123,18 @@ function path_values(obj::Solid, cosθ::AbstractVector)
         sθ = sqrt(1-cθ^2)
         n = [sθ*cϕ, sθ*sϕ, -cθ]
 
-        # Random position in the tube plane
+        # Random 2d position in the tube plane: polar coords (r,ψ) and cartesian (x0,y0)
         r = sqrt(rand())*tube_radius
         ψ = 2π*rand()
         x0 = r.*cos.(ψ)
         y0 = r.*sin.(ψ)
 
         # Where does the path cross the plane ⟂ the tube passing through the origin?
-        origin = [cϕ*cθ*x0-sϕ*y0, sϕ*cθ*x0+cϕ*y0, -sθ*x0]
+        # Rotate (x0,y0) by θ about the +x axis, then by ϕ about the z axis
+        # x1, y1, z1 = x0, cθ*y0, sθ*y0
+        # x2, y2, z2 = cϕ*x1+sϕ*y1, -sϕ*x1+cϕ*y1, z1
+        origin = [cϕ*x0+sϕ*cθ*y0, -sϕ*x0+cθ*cϕ*y0, sθ*x0]
+        # origin = [cϕ*cθ*x0-sϕ*y0, sϕ*cθ*x0+cϕ*y0, -sθ*x0]
 
         line = Line(n, origin)
         L[i] = path(obj, line)
