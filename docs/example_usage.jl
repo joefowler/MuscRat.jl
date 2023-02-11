@@ -61,10 +61,7 @@ objcolors = Dict(
     :fat_scint => "cyan"
 )
 
-function plot_NaI_results(solids, loss, smear=0.0)
-    nbins = 500
-    brange = [0,100]
-    db = (brange[2]-brange[1])/nbins
+function plot_results(solids, loss, smear=0.0; NaI=true)
     clf()
     ax1 = subplot(211)
     title("Geometric paths for CR µ± through NaI of 4 shapes of equal volume")
@@ -74,22 +71,76 @@ function plot_NaI_results(solids, loss, smear=0.0)
     xlabel("Energy lost in scintillator (MeV)")
     ylabel("Counts per MeV per second")
 
-    for k in (:cylinder, :sphere, :tall_scint, :fat_scint)
+    if NaI
+        detectors = (:cylinder, :sphere, :tall_scint, :fat_scint)
+        Pmax, Lmax = 12, 100
+    else
+        detectors = (:thick_tkid, :thin_tkid)
+        Pmax, Lmax = 0.75, 5
+    end
+
+    for k in detectors
+        flux_in_tube = generator.flux*MuscRat.tube_area(solids[k]) # Units are µ per second
+        total_time = N/flux_in_tube
+        N_lbins = 500
+        Δbin = Lmax/N_lbins
+
         sca(ax1)
         tp = total_paths[k]
         lw = k == :cylinder ? 2 : 1
-        c, _, _ = hist(tp[tp.>0], 600, [0,12], histtype="step", color=objcolors[k], label=names[k], lw=lw)
+        c, _, _ = hist(tp[tp.>0], 500, [0,Pmax], histtype="step", color=objcolors[k], label=names[k], lw=lw)
+
         sca(ax2)
-        weight = generator.flux*MuscRat.tube_area(solids[k])/(N*db)
-        Nv = length(loss[k])
-        L = loss[k] .* exp.(smear*randn(Nv))
-        c, _, _ = hist(L, 500, [0,100], histtype="step", weights=weight.+zero(loss[k]), 
+        weight = 1/(total_time*Δbin)
+        Ndetector_hits = length(loss[k])
+        L = loss[k]
+        if smear > 0
+            L = L .* exp.(smear*randn(Ndetector_hits))
+        end
+        c, _, _ = hist(L, N_lbins, [0,Lmax], histtype="step", weights=weight.+zero(L), 
                         color=objcolors[k], label=names[k], lw=lw)
-        @show Nv*weight*db, sum(c)*db
+        @show Ndetector_hits*weight*Δbin, sum(c)*Δbin
     end
     legend()
     tight_layout()
     nothing
 end
 
-plot_NaI_results(solids, loss)
+plot_results(solids, loss; NaI=true)
+
+using HDF5
+function store_results(solids, loss, smear=0.0; NaI=true)
+    if NaI
+        fname = "loss_spectra_NaI.hdf5"
+        detectors = (:cylinder, :sphere, :tall_scint, :fat_scint)
+        Lmax = 100
+    else
+        fname = "loss_spectra_TKID.hdf5"
+        detectors = (:thick_tkid, :thin_tkid)
+        Lmax = 5
+    end
+    figure(2)
+
+    h5open(fname, "w") do file
+        write(file, "Ebin_range", [0,Lmax])
+        for k in detectors
+            flux_in_tube = generator.flux*MuscRat.tube_area(solids[k]) # Units are µ per second
+            total_time = N/flux_in_tube
+            N_lbins = 500
+            Δbin = Lmax/N_lbins
+    
+            weight = 1/(total_time*Δbin)
+            Ndetector_hits = length(loss[k])
+            L = loss[k]
+            if smear > 0
+                L = L .* exp.(smear*randn(Ndetector_hits))
+            end
+            c, _, _ = hist(L, N_lbins, [0,Lmax], histtype="step", weights=weight.+zero(L))
+            @show Ndetector_hits*weight*Δbin, sum(c)*Δbin
+            write(file, string(k), c)
+        end
+    end
+    close(2)
+    nothing
+end
+
