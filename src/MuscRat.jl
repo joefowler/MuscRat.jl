@@ -1,6 +1,6 @@
 module MuscRat
 
-export Line, Box, HCylinder, Sphere
+export Line, Box, HCylinder, VCylinder, Cylinder, Sphere
 export path, volume, smallest_radius
 export µspectrum, µspectrum_p, µspectrum_reyna, µspectrum_reyna_p
 export Eloss_function

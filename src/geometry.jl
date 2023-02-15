@@ -35,17 +35,25 @@ struct Sphere <: Solid
 end
 
 """
-    HCylinder(radius, height)
+    Cylinder(radius, height, axis)
 
-Represent a cylinder of radius `radius` and `height`, oriented along the X axis.
+Represent a cylinder of radius `radius` and `height`, oriented along the `axis` axis (must be 1, 2, or 3).
 """
-struct HCylinder <: Solid
+struct Cylinder <: Solid
     radius::Float64
     rad2::Float64
     height::Float64
+    axis::Int
 
-    HCylinder(r, h) = new(r, r^2, h)
+    function Cylinder(r::Real, h::Real, axis::Integer)
+        if !(axis in (1,2,3))
+            error("Cylinder axis must be one of {1,2,3}")
+        end
+        new(r, r^2, h, axis)
+    end
 end
+HCylinder(r::Real, h::Real) = Cylinder(r, h, 1)
+VCylinder(r::Real, h::Real) = Cylinder(r, h, 3)
 
 """
     Box(sides)
@@ -64,7 +72,7 @@ Box(args...) = Box([args...])
 Returns the volume of a solid object
 """
 volume(s::Sphere) = (4/3)*π*(s.radius^3)
-volume(c::HCylinder) = π*c.rad2*c.height
+volume(c::Cylinder) = π*c.rad2*c.height
 volume(b::Box) = prod(b.sides)
 
 """
@@ -74,7 +82,7 @@ Returns the radius of the smallest cylinder that, when centered on the origin at
 will contain every point of the object `obj`.
 """
 smallest_radius(s::Sphere) = s.radius
-smallest_radius(c::HCylinder) = sqrt(c.radius^2+(c.height*0.5)^2)
+smallest_radius(c::Cylinder) = sqrt(c.radius^2+(c.height*0.5)^2)
 smallest_radius(b::Box) = norm(b.sides)/2
 
 """
@@ -118,10 +126,25 @@ end
 Return the path length of `line` through the object `obj`, or 0 if the line doesn't
 intersect the object.
 """
-function path(cyl::HCylinder, line::Line)
-    # Step 0: If the line is parallel to the x-axis, special case.
-    if line.n[2]==0 && line.n[3] == 0
-        if line.pt[2]^2 + line.pt[3]^2 ≤ cyl.rad2
+function path(cyl::Cylinder, line::Line)
+    # r2 is the square distance of the line.pt from the cylinder axis
+    r2 = 0.0
+    for i=1:3
+        if i != cyl.axis
+            r2 += line.pt[i]^2
+        end
+    end
+
+    # Step 0: If the line is parallel to the axis, special case.
+    parallel = true
+    for i=1:3
+        if i != cyl.axis && line.n[i] != 0
+            parallel = false
+            break
+        end
+    end
+    if parallel
+        if r2 ≤ cyl.rad2
             return cyl.height
         end
         return 0.0
@@ -129,9 +152,9 @@ function path(cyl::HCylinder, line::Line)
 
     # Step 1: At which 0, 1, or 2 points does line intersect the infinitely long version of cyl?
     # Solving a quadratic equation
-    a = line.n[2]^2+line.n[3]^2
-    b = 2*(line.pt[2]*line.n[2] + line.pt[3]*line.n[3])
-    c = line.pt[2]^2+line.pt[3]^2-cyl.rad2
+    a = dot(line.n, line.n) - line.n[cyl.axis]^2
+    b = 2dot(line.pt, line.n) - 2line.pt[cyl.axis]*line.n[cyl.axis]
+    c = r2-cyl.rad2
     disc = b - 4a*c
     disc ≤ 0 && return 0 # negative or 0 discriminant means doesn't have finite-length intersection
 
@@ -140,25 +163,25 @@ function path(cyl::HCylinder, line::Line)
     difft = sqrt(disc)/2a
     t1 = avgt-difft
     t2 = avgt+difft
-    # Make sure that t1 has the lesser x component of the two. If not, swap.
-    if t1[1] > t2[1]
+    # Make sure that t1 is the lesser of the two. If not, swap.
+    if t1 > t2
         t1, t2 = t2, t1
     end
 
-    # Find full points x1 and x2 (with x1[1] ≤ x2[1]) where line crosses the ∞ cylinder
+    # Find full points x1 and x2 (with x1[cyl.axis] ≤ x2[cyl.axis]) where line crosses the ∞ cylinder
     halfht = 0.5*cyl.height
     x1 = point(line, t1)
-    x1[1] ≥ halfht && return 0.0
+    x1[cyl.axis] ≥ halfht && return 0.0
     x2 = point(line, t2)
-    x2[1] ≤ -halfht && return 0.0
+    x2[cyl.axis] ≤ -halfht && return 0.0
 
     # Step 3.1: if x1 is outside the finite cylinder, move it to point on the x=-h/2 boundary
-    if x1[1] < -halfht
-        t1 = -(line.pt[1]+halfht)/line.n[1]
+    if x1[cyl.axis] < -halfht
+        t1 = -(line.pt[cyl.axis]+halfht)/line.n[cyl.axis]
     end
     # Step 3.2: if x2 is outside the finite cylinder, move it to point on the x=+h/2 boundary
-    if x2[1] > +halfht
-        t2 = -(line.pt[1]-halfht)/line.n[1]
+    if x2[cyl.axis] > +halfht
+        t2 = -(line.pt[cyl.axis]-halfht)/line.n[cyl.axis]
     end
     abs(t2-t1)
 end

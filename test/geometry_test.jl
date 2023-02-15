@@ -9,9 +9,15 @@ using MuscRat
     @test_throws DimensionMismatch unequal_dim = Line([1,2,3,4], [1,2,3])
 
     hc = HCylinder(4, 5)
-    @test hc.rad2 == 16.0
-    @test volume(hc) ≈ 80π
-    @test smallest_radius(hc) ≈ sqrt(4^2+2.5^2)
+    vc = VCylinder(4, 5)
+    c2 = Cylinder(4, 5, 2)
+    for cyl in (hc, vc, c2)
+        @test cyl.rad2 == 16.0
+        @test volume(cyl) ≈ 80π
+        @test smallest_radius(cyl) ≈ sqrt(4^2+2.5^2)
+    end
+    @test_throws MethodError Cylinder(4, 5)
+    @test_throws ErrorException Cylinder(4, 5, 93)
 
     s = Sphere(4)
     @test s.rad2 == 16.0
@@ -20,11 +26,11 @@ using MuscRat
 
     box_vector = Box([3, 4, 5])
     box_tuple = Box(3, 4, 5.0)
-    @test length(box_vector.sides) == 3
-    @test length(box_tuple.sides) == 3
-    @test volume(box_vector) ≈ 60
-    @test volume(box_tuple) ≈ 60
-    @test smallest_radius(box_vector) ≈ sqrt(1.5^2 + 2^2 + 2.5^2)
+    for box in (box_vector, box_tuple)
+        @test length(box.sides) == 3
+        @test volume(box) ≈ 60
+        @test smallest_radius(box) ≈ sqrt(1.5^2 + 2^2 + 2.5^2)
+    end
 end
 
 @testset "path lengths" begin
@@ -51,6 +57,23 @@ end
         line_right_cap = Line([1, 0, 1], [H/2, 0, 0])
         @test path(cyl, line_left_cap) ≈ sqrt(2)*R
         @test path(cyl, line_right_cap) ≈ sqrt(2)*R
+    end
+    @testset "VCylinder" begin
+        R, H = 4, 10
+        cyl = VCylinder(R, H)
+        hline0 = Line([0, 0, 1])
+        hlineout = Line([0, 0, 1], [0, R+1, 0])
+        @test path(cyl, hline0) == H
+        @test path(cyl, hlineout) == 0.0
+        line_notouch = Line([1, 0, 0], [0, R+1, 0])
+        line_tangent = Line([1, 0, 0], [0, R, 0])
+        line_cross_below= Line([1, 0, 0], [0, 0, -H])
+        line_cross_above = Line([1, 0, 0], [0, 0, +H])
+        for line in (line_notouch, line_tangent, line_cross_below, line_cross_above)
+            @test path(cyl,line) == 0.0
+        end
+        line_both_caps = Line([.3, 0, .8], [0, 0, 0])
+        @test path(cyl, line_both_caps) ≈ H/cos(atan(3/8))
     end
 
     @testset "Box" begin
