@@ -127,52 +127,43 @@ Return the path length of `line` through the object `obj`, or 0 if the line does
 intersect the object.
 """
 function path(cyl::Cylinder, line::Line)
+    # Step 1: At which 0, 1, or 2 points does line intersect the infinitely long version of cyl?
+    # This means solving a quadratic equation (in general, though not quadratic if a=0).
     # r2 is the square distance of the line.pt from the cylinder axis
-    r2 = 0.0
+    a = b = r2 = 0.0
     for i=1:3
         if i != cyl.axis
+            a += line.n[i]^2
+            b += 2*line.pt[i]*line.n[i]
             r2 += line.pt[i]^2
         end
     end
-
-    # Step 0: If the line is parallel to the axis, special case.
-    parallel = true
-    for i=1:3
-        if i != cyl.axis && line.n[i] != 0
-            parallel = false
-            break
-        end
-    end
-    if parallel
-        if r2 ≤ cyl.rad2
+    c = r2-cyl.rad2
+    if a == 0
+        if c ≤ 0
             return cyl.height
         end
         return 0.0
     end
-
-    # Step 1: At which 0, 1, or 2 points does line intersect the infinitely long version of cyl?
-    # Solving a quadratic equation
-    a = dot(line.n, line.n) - line.n[cyl.axis]^2
-    b = 2dot(line.pt, line.n) - 2line.pt[cyl.axis]*line.n[cyl.axis]
-    c = r2-cyl.rad2
     disc = b - 4a*c
-    disc ≤ 0 && return 0 # negative or 0 discriminant means doesn't have finite-length intersection
+    disc ≤ 0 && return 0 # negative or 0 discriminant means there's no intersection, or a length-0 tangent point only
 
     # Step 2: Solve quadratic. Find the points x1 and x2 where line enters/leaves the ∞ cylinder.
     avgt = -b/2a
     difft = sqrt(disc)/2a
     t1 = avgt-difft
     t2 = avgt+difft
-    # Make sure that t1 is the lesser of the two. If not, swap.
-    if t1 > t2
+    x1 = point(line, t1)
+    x2 = point(line, t2)
+    # Make sure that x1 is the lesser of the two along the cylinder axis. If not, swap.
+    if x1[cyl.axis] > x2[cyl.axis]
         t1, t2 = t2, t1
+        x1, x2 = x2, x1
     end
 
     # Find full points x1 and x2 (with x1[cyl.axis] ≤ x2[cyl.axis]) where line crosses the ∞ cylinder
     halfht = 0.5*cyl.height
-    x1 = point(line, t1)
     x1[cyl.axis] ≥ halfht && return 0.0
-    x2 = point(line, t2)
     x2[cyl.axis] ≤ -halfht && return 0.0
 
     # Step 3.1: if x1 is outside the finite cylinder, move it to point on the x=-h/2 boundary

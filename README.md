@@ -14,7 +14,9 @@ This code runs in Julia 1.x (tested for 1.7 and up).
 Analytic geometry allows MuscRat to compute the flux through muon detectors of simple, regular shape. Shapes implemented are:
 
 * a sphere (`Sphere`)
-* a horizontal cylinder (`Hcylinder`) with axis along the x (first) axis
+* a cylinder (`Cylinder`) with axis along any cartesian axis (1, 2, or 3), including the specific cases of:
+  * a vertical cylinder (`Vcylinder`)
+  * a horizontal cylinder (`Hcylinder`)
 * a rectangular prism (`Box`) oriented square to the cartesian axes
 
 The muon flux is generated based on one of the two analytic formulas found in Su et al (2021): those of Reyna 2006 or Chatzidakis et al. 2015. At the moment, these are only sea-level values.
