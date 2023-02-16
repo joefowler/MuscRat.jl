@@ -1,30 +1,35 @@
 using PyPlot, MuscRat, Statistics
 
-# Make 2 boxes: 5x5x1.5 mm and 5x5x0.5 mm
-b3 = Box(.5, .5, .15)
-b1 = Box(.5, .5, .05)
 
-# Make 4 "NaI" objects: a cylinder of the true shape, plus a sphere and 2 boxes of same volume
-NaI = HCylinder(3.81, 7.62)
-v = volume(NaI)
+# Make 7 "NaI" objects of equal volume: a sphere, three cylinders oriented vertically then horizontally
+r = 3.81
+h = 2r
+NaIH2 = HCylinder(r, h)
+NaIV2 = VCylinder(r, h)
+NaIH1 = HCylinder(r/sqrt(2), 2h)
+NaIV1 = VCylinder(r/sqrt(2), 2h)
+NaIH3 = HCylinder(sqrt(2)*r, h/2)
+NaIV3 = VCylinder(sqrt(2)*r, h/2)
+v = volume(NaIH2)
 NaISphere = Sphere((3/(4π)*v)^(1/3))
-w = sqrt(v/7.62)
-NaBtall = Box(w, w, 7.62)
-NaBfat = Box(7.62, 7.62, v/7.62^2)
 
 solids = Dict(
-    :thick_tkid => b3,
-    :thin_tkid => b1,
-    :cylinder => NaI,
+    :thick_tkid => Box(.5, .5, .15),
+    :thin_tkid => Box(.5, .5, .05),
+    :cylH1 => NaIH1,
+    :cylH2 => NaIH2,
+    :cylH3 => NaIH3,
+    :cylV1 => NaIV1,
+    :cylV2 => NaIV2,
+    :cylV3 => NaIV3,
     :sphere => NaISphere,
-    :tall_scint => NaBtall,
-    :fat_scint => NaBfat
 )
 
 N = 1000000
 generator = CRMuonGenerator(100, 100);
 pGeV,cosθ = generate(generator, N);
 pMeV = 1000pGeV
+println("Generated $N muons")
 
 total_paths = Dict([(k,MuscRat.path_values(obj, cosθ)) for (k,obj) in solids])
 
@@ -46,19 +51,25 @@ end
 names = Dict(
     :thick_tkid => "1.5 mm TKID",
     :thin_tkid => "0.5 mm TKID",
-    :cylinder => "NaI cylinder",
     :sphere => "NaI sphere",
-    :tall_scint => "NaI tall box",
-    :fat_scint => "NaI fat box"
+    :cylH1 => "NaI long horizontal cylinder",
+    :cylH2 => "NaI equal horizontal cylinder",
+    :cylH3 => "NaI short horizontal cylinder",
+    :cylV1 => "NaI tall vertical cylinder",
+    :cylV2 => "NaI equal vertical cylinder",
+    :cylV3 => "NaI short vertical cylinder",
 )
 
 objcolors = Dict(
     :thick_tkid => "red",
     :thin_tkid => "orange",
-    :cylinder => "black",
     :sphere => "brown",
-    :tall_scint => "blue",
-    :fat_scint => "cyan"
+    :cylH1 => "navy",
+    :cylH2 => "black",
+    :cylH3 => "blue",
+    :cylV1 => "darkturquoise",
+    :cylV2 => "green",
+    :cylV3 => "limegreen",
 )
 
 function plot_results(solids, loss, smear=0.0; NaI=true)
@@ -72,8 +83,8 @@ function plot_results(solids, loss, smear=0.0; NaI=true)
     ylabel("Counts per MeV per second")
 
     if NaI
-        detectors = (:cylinder, :sphere, :tall_scint, :fat_scint)
-        Pmax, Lmax = 12, 100
+        detectors = (:cylH1, :cylH2, :cylH3, :cylV1, :cylV2, :cylV3, :sphere)
+        Pmax, Lmax = 2smallest_radius(solids[:cylH1]), 180
     else
         detectors = (:thick_tkid, :thin_tkid)
         Pmax, Lmax = 0.75, 5
@@ -87,7 +98,7 @@ function plot_results(solids, loss, smear=0.0; NaI=true)
 
         sca(ax1)
         tp = total_paths[k]
-        lw = k == :cylinder ? 2 : 1
+        lw = k == :cylH2 ? 2 : 1
         c, _, _ = hist(tp[tp.>0], 500, [0,Pmax], histtype="step", color=objcolors[k], label=names[k], lw=lw)
 
         sca(ax2)
@@ -97,9 +108,10 @@ function plot_results(solids, loss, smear=0.0; NaI=true)
         if smear > 0
             L = L .* exp.(smear*randn(Ndetector_hits))
         end
-        c, _, _ = hist(L, N_lbins, [0,Lmax], histtype="step", weights=weight.+zero(L), 
+        c, _, _ = hist(L, N_lbins, [0,Lmax], histtype="step", weights=weight.+zero(L),
                         color=objcolors[k], label=names[k], lw=lw)
-        @show Ndetector_hits*weight*Δbin, sum(c)*Δbin
+        hitrate = Ndetector_hits/total_time
+        @show k, hitrate
     end
     legend()
     tight_layout()
@@ -128,7 +140,7 @@ function store_results(solids, loss, smear=0.0; NaI=true)
             total_time = N/flux_in_tube
             N_lbins = 500
             Δbin = Lmax/N_lbins
-    
+
             weight = 1/(total_time*Δbin)
             Ndetector_hits = length(loss[k])
             L = loss[k]
