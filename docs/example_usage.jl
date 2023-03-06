@@ -25,7 +25,7 @@ solids = Dict(
     :sphere => NaISphere,
 )
 
-N = 1000000
+N = 10000000
 generator = CRMuonGenerator(100, 100);
 pGeV,cosθ = generate(generator, N);
 pMeV = 1000pGeV
@@ -75,11 +75,21 @@ objcolors = Dict(
 function plot_results(solids, loss, smear=0.0; NaI=true)
     clf()
     ax1 = subplot(211)
-    title("Geometric paths for CR µ± through NaI of 4 shapes of equal volume")
-    xlabel("Path through scintillator (cm)")
+    if NaI
+        title("Geometric paths for CR µ± through NaI of 4 shapes of equal volume")
+        xlabel("Path through scintillator (cm)")
+    else
+        title("Geometric paths for CR µ± through TKID of 2 thicknesses")
+        xlabel("Path through silicon TKID (cm)")
+    end
     ax2 = subplot(212)
-    title("Bethe-Bloch CR µ± loss in NaI of 4 shapes of equal volume")
-    xlabel("Energy lost in scintillator (MeV)")
+    if NaI
+        title("Bethe-Bloch CR µ± loss in NaI of 4 shapes of equal volume")
+        xlabel("Energy lost in scintillator (MeV)")
+    else
+        title("Bethe-Bloch CR µ± loss in TKID of 2 thicknesses")
+        xlabel("Energy lost in silicon TKID (MeV)")
+    end
     ylabel("Counts per MeV per second")
 
     if NaI
@@ -120,39 +130,39 @@ end
 
 plot_results(solids, loss; NaI=true)
 
-using HDF5
-function store_results(solids, loss, smear=0.0; NaI=true)
-    if NaI
-        fname = "loss_spectra_NaI.hdf5"
-        detectors = (:cylinder, :sphere, :tall_scint, :fat_scint)
-        Lmax = 100
-    else
-        fname = "loss_spectra_TKID.hdf5"
-        detectors = (:thick_tkid, :thin_tkid)
-        Lmax = 5
-    end
-    figure(2)
+# using HDF5
+# function store_results(solids, loss, smear=0.0; NaI=true)
+#     if NaI
+#         fname = "loss_spectra_NaI.hdf5"
+#         detectors = (:sphere, :cylH3, :cylV3, :cylH1, :cylH2, :cylV1, :cylV2)
+#         Lmax = 100 # MeV
+#     else
+#         fname = "loss_spectra_TKID.hdf5"
+#         detectors = (:thick_tkid, :thin_tkid)
+#         Lmax = 5 # MeV
+#     end
+#     figure(2)
 
-    h5open(fname, "w") do file
-        write(file, "Ebin_range", [0,Lmax])
-        for k in detectors
-            flux_in_tube = generator.flux*MuscRat.tube_area(solids[k]) # Units are µ per second
-            total_time = N/flux_in_tube
-            N_lbins = 500
-            Δbin = Lmax/N_lbins
+#     h5open(fname, "w") do file
+#         write(file, "Ebin_range", [0,Lmax])
+#         for k in detectors
+#             flux_in_tube = generator.flux*MuscRat.tube_area(solids[k]) # Units are µ per second
+#             total_time = N/flux_in_tube
+#             N_lbins = 5000
+#             Δbin = Lmax/N_lbins # MeV
 
-            weight = 1/(total_time*Δbin)
-            Ndetector_hits = length(loss[k])
-            L = loss[k]
-            if smear > 0
-                L = L .* exp.(smear*randn(Ndetector_hits))
-            end
-            c, _, _ = hist(L, N_lbins, [0,Lmax], histtype="step", weights=weight.+zero(L))
-            @show Ndetector_hits*weight*Δbin, sum(c)*Δbin
-            write(file, string(k), c)
-        end
-    end
-    close(2)
-    nothing
-end
+#             weight = 1/(total_time*Δbin)
+#             Ndetector_hits = length(loss[k])
+#             L = loss[k]
+#             if smear > 0
+#                 L = L .* exp.(smear*randn(Ndetector_hits))
+#             end
+#             c, _, _ = hist(L, N_lbins, [0,Lmax], histtype="step", weights=weight.+zero(L))
+#             @show Ndetector_hits*weight*Δbin, sum(c)*Δbin
+#             write(file, string(k), c)
+#         end
+#     end
+#     close(2)
+#     nothing
+# end
 
