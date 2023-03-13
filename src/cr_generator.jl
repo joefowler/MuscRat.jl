@@ -85,6 +85,67 @@ function CRMuonGenerator(Np::Integer, Nang::Integer; Pmin::Real=0.1, Pmax::Real=
     CRGenerator(Np, Nang, Pmin, Pmax, logPlim, cosθlim, s)
 end
 
+function CRGenerator(filename::AbstractString, mass::Real)
+    lines = readlines(filename)
+    header = split(lines[1], ",")
+    Nang = parse(Int, header[1])
+    Np = parse(Int, header[2])
+    Pmin = parse(Float64, header[3])
+    Pmax = parse(Float64, header[4])
+
+    @assert Np == length(lines)-2
+    @assert Nang == length(split(lines[2], ","))-2
+    spectrum = zeros(Float64, 1+Np, 1+Nang)
+    cosθlim = LinRange(0, 1, 1+Nang)
+    ke = Float64[]
+    for i = 1:Np+1
+        energystr, spectrumstr... = split(lines[i+1], ",")
+        push!(ke, parse(Float64, energystr))
+        spectrum[i,:] .= [parse(Float64, x) for x in spectrumstr]
+    end
+    p = sqrt.((ke.+mass).^2 .- mass^2)
+    dlogp = diff(log.(p))
+    @show maximum(dlogp)-minimum(dlogp), mean(dlogp)*1e-3
+    @assert maximum(dlogp)-minimum(dlogp) < mean(dlogp)*1e-3
+    @assert abs(log(p[1]/Pmin)) < 1e-4
+    @assert abs(log(p[end]/Pmax)) < 1e-4
+    logPlim = LinRange(log(Pmin), log(Pmax), length(p))
+    for i=1:Nang+1
+        spectrum[:,i] .*= p
+    end
+
+    CRGenerator(Np, Nang, Pmin, Pmax, logPlim, cosθlim, spectrum)
+end
+
+@enum Particle begin
+    Gamma
+    µplus
+    µminus
+    Electron
+    Positron
+end
+
+
+function ParmaGenerator(p::Particle)
+    localpaths = Dict(
+        Gamma => "data/parma_gamma.txt",
+        µplus => "data/parma_mu+.txt",
+        µminus => "data/parma_mu-.txt",
+        Electron => "data/parma_electron.txt",
+        Positron => "data/parma_positron.txt",
+    )
+    masses = Dict(
+        Gamma => 0.0,
+        µplus => mµ,
+        µminus => mµ,
+        Electron => me,
+        Positron => me,
+    )
+    project_path(parts...) = normpath(joinpath(@__DIR__, "..", parts...))
+    return CRGenerator(project_path(localpaths[p]), masses[p]*1000)
+end
+
+
 """
     generate(mg::CRGenerator, N)
 

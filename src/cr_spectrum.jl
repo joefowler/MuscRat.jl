@@ -42,6 +42,8 @@ function µspectrum_reyna_p(pµ, cosθ)
 end
 
 const mµ = 0.105659  # µ mass in GeV
+const me = 0.000510999 # e± mass in GeV
+
 muon_E(p) = p<0 ? error("Negative µ momentum") : sqrt(p^2+mµ^2)-mµ
 muon_p(E) = E<0 ? error("Negative µ kinetc energy") : sqrt((E+mµ)^2-mµ^2)
 
