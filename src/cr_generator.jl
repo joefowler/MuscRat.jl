@@ -1,7 +1,56 @@
 using Statistics
 
 """
-    CRMuonGenerator(Np, Nang; Pmin=0.1, Pmax=1000, useReyna=false)
+    CRGenerator(....)
+
+Returns a cosmic ray particle generator.
+"""
+struct CRGenerator
+    Np::Int
+    Nang::Int
+    Pmin::Float64
+    Pmax::Float64
+    flux::Float64  # units are counts cm^-2 s^-1 (energy and solid angle already integrated over)
+
+    logPlim::LinRange
+    cosθlim::LinRange
+    prob::Matrix{Float64}
+    boxCDF::Vector{Float64}
+    pij::Matrix{Float64}
+
+    function CRGenerator(
+            Np::Integer, Nang::Integer, Pmin::Real, Pmax::Real,
+            logPlim::LinRange, cosθlim::LinRange, pxspectrum::AbstractMatrix
+        )
+        
+        # Integrate s over all boxes
+        prob = zeros(Float64, Np, Nang)
+        for i=1:Np, j=1:Nang
+            prob[i,j] = mean(pxspectrum[i:i+1, j:j+1])
+        end
+        Δcos = cosθlim[2]-cosθlim[1]
+        ΔlogP = logPlim[2]-logPlim[1]
+        total_flux = 2π*sum(prob)*(Δcos*ΔlogP)
+        prob ./= sum(prob)
+        boxCDF = cumsum(vec(prob))  # runs through first column, then 2nd, etc.
+
+        # Now create the 4 points for each box
+        pij = Array{Float64}(undef, Np*Nang, 4)
+        for j=1:Nang, i=1:Np
+            k=Np*(j-1)+i
+            pij[k,1] = pxspectrum[i,j]
+            pij[k,2] = pxspectrum[i+1,j]
+            pij[k,3] = pxspectrum[i,j+1]
+            pij[k,4] = pxspectrum[i+1,j+1]
+            pij[k,:] ./= mean(pij[k,:])
+        end
+
+        new(Np, Nang, Pmin, Pmax, total_flux, logPlim, cosθlim, prob, boxCDF, pij)
+    end
+end
+
+"""
+CRMuonGenerator(Np, Nang; Pmin=0.1, Pmax=1000, useReyna=false)
 
 Returns a cosmic ray muon generator. The numerical integration is perfomed using `Np` momentum bins and
 `Nang` angle bins. The momentum bins are logarithmically spaced between the energy `Pmin` and `Pmax`
@@ -16,70 +65,34 @@ N = 1000000;
 p,cosθ = generate(generator, N);
 ```
 """
-struct CRMuonGenerator
-    Np::Int
-    Nang::Int
-    Pmin::Float64
-    Pmax::Float64
-    flux::Float64  # units are counts cm^-2 s^-1 (energy and solid angle already integrated over)
-
-    logPlim::LinRange
-    cosθlim::LinRange
-    prob::Matrix{Float64}
-    boxCDF::Vector{Float64}
-    pij::Matrix{Float64}
-
-    function CRMuonGenerator(Np::Integer, Nang::Integer; Pmin::Real=0.1, Pmax::Real=1000.0, useReyna::Bool=false)
-        logPlim = LinRange(log(Pmin), log(Pmax), 1+Np)
-        cosθlim = LinRange(0, 1, 1+Nang)
-        if useReyna
-            spectrum = µspectrum_reyna_p
-        else
-            spectrum = µspectrum_chatzidakis_p
-        end
-        prob = zeros(Float64, Np, Nang)
-        s = zeros(Float64, 1+Np, 1+Nang)
-        for i=1:Np+1
-            p = exp(logPlim[i])
-            for j=1:Nang+1
-                c = cosθlim[j]
-                s[i,j] = p*spectrum(p, c)
-            end
-        end
-
-        # Integrate s over all boxes
-        for i=1:Np, j=1:Nang
-            prob[i,j] = mean(s[i:i+1, j:j+1])
-        end
-        Δcos = cosθlim[2]-cosθlim[1]
-        ΔlogP = logPlim[2]-logPlim[1]
-        total_flux = 2π*sum(prob)*(Δcos*ΔlogP)
-        prob ./= sum(prob)
-        boxCDF = cumsum(vec(prob))  # runs through first column, then 2nd, etc.
-
-        # Now create the 4 points for each box
-        pij = Array{Float64}(undef, Np*Nang, 4)
-        for j=1:Nang, i=1:Np
-            k=Np*(j-1)+i
-            pij[k,1] = s[i,j]
-            pij[k,2] = s[i+1,j]
-            pij[k,3] = s[i,j+1]
-            pij[k,4] = s[i+1,j+1]
-            pij[k,:] ./= mean(pij[k,:])
-        end
-
-        new(Np, Nang, Pmin, Pmax, total_flux, logPlim, cosθlim, prob, boxCDF, pij)
+function CRMuonGenerator(Np::Integer, Nang::Integer; Pmin::Real=0.1, Pmax::Real=1000.0, useReyna::Bool=false)
+    logPlim = LinRange(log(Pmin), log(Pmax), 1+Np)
+    cosθlim = LinRange(0, 1, 1+Nang)
+    if useReyna
+        spectrum = µspectrum_reyna_p
+    else
+        spectrum = µspectrum_chatzidakis_p
     end
+    prob = zeros(Float64, Np, Nang)
+    s = zeros(Float64, 1+Np, 1+Nang)
+    for i=1:Np+1
+        p = exp(logPlim[i])
+        for j=1:Nang+1
+            c = cosθlim[j]
+            s[i,j] = p*spectrum(p, c)
+        end
+    end
+    CRGenerator(Np, Nang, Pmin, Pmax, logPlim, cosθlim, s)
 end
 
 """
-    generate(mg::CRMuonGenerator, N)
+    generate(mg::CRGenerator, N)
 
 Return `(p,cosθ)`, two vectors of length `N`, that are randomly generated cosmic ray muons
 using the generator `mg`. The momenta `p` are in units of GeV/c. The `cosθ` is the cosine of the zenith
 angle (thus cosθ=1 means vertical, and 0 means horizontal).
 """
-function generate(mg::CRMuonGenerator, N::Integer)
+function generate(mg::CRGenerator, N::Integer)
     boxid = [findfirst(x->x>r, mg.boxCDF) for r in rand(N)]
 
     cosθ = Array{Float64}(undef, N)

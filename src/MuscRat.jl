@@ -4,7 +4,7 @@ export Line, Box, HCylinder, VCylinder, Cylinder, Sphere
 export path, volume, smallest_radius
 export µspectrum, µspectrum_p, µspectrum_reyna, µspectrum_reyna_p
 export Eloss_function
-export CRMuonGenerator, generate
+export CRGenerator, CRMuonGenerator, generate
 
 include("geometry.jl")
 include("cr_generator.jl")

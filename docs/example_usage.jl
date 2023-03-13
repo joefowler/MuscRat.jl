@@ -133,13 +133,16 @@ plot_results(solids, loss; NaI=true)
 # using HDF5
 # function store_results(solids, loss, smear=0.0; NaI=true)
 #     if NaI
-#         fname = "loss_spectra_NaI.hdf5"
+#         fname = "loss_spectra_NaI_10k.hdf5"
 #         detectors = (:sphere, :cylH3, :cylV3, :cylH1, :cylH2, :cylV1, :cylV2)
+#         detectors = (:cylH2, )
 #         Lmax = 100 # MeV
+#         N_lbins = 10000
 #     else
 #         fname = "loss_spectra_TKID.hdf5"
 #         detectors = (:thick_tkid, :thin_tkid)
 #         Lmax = 5 # MeV
+#         N_lbins = 5000
 #     end
 #     figure(2)
 
@@ -148,7 +151,6 @@ plot_results(solids, loss; NaI=true)
 #         for k in detectors
 #             flux_in_tube = generator.flux*MuscRat.tube_area(solids[k]) # Units are µ per second
 #             total_time = N/flux_in_tube
-#             N_lbins = 5000
 #             Δbin = Lmax/N_lbins # MeV
 
 #             weight = 1/(total_time*Δbin)
