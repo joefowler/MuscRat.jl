@@ -1,5 +1,4 @@
 using Unitful
-include("units.jl")
 
 # See README for full citations of Su, Charzidakis, and Reyna
 function µspectrum_chatzidakis(Eµ, cosθ)

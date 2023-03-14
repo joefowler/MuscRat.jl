@@ -6,7 +6,7 @@ using MuscRat, Unitful
     all_functions = (µspectrum, µspectrum_reyna, µspectrum_p, µspectrum_reyna_p)
     args = (E, E, p, p)
     for (f, arg) in zip(all_functions, args)
-        @test f(arg, -.3) == 0.0
+        @test ustrip(f(arg, -.3)) == 0.0
         @test_throws Exception f(-arg, .5)
     end
     mµ = MuscRat.mµ

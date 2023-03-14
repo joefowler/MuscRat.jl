@@ -1,53 +1,53 @@
-using Statistics
+using Statistics, Unitful
 
 """
     CRGenerator(....)
 
-Returns a cosmic ray particle generator.
+A cosmic ray particle generator.
 """
-struct CRGenerator
+struct CRGenerator{P<:Unitful.Momentum, CRF<:CRFlux}
     Np::Int
     Nang::Int
-    Pmin::Float64
-    Pmax::Float64
-    flux::Float64  # units are counts cm^-2 s^-1 (energy and solid angle already integrated over)
+    Pmin::P
+    Pmax::P
+    flux::CRF  # units are counts cm^-2 s^-1 (energy and solid angle already integrated over)
 
-    logPlim::LinRange
+    logPGeVlim::LinRange
     cosθlim::LinRange
-    prob::Matrix{Float64}
+    relativeprob::Matrix{Float64}
     boxCDF::Vector{Float64}
     pij::Matrix{Float64}
-
-    function CRGenerator(
-            Np::Integer, Nang::Integer, Pmin::Real, Pmax::Real,
-            logPlim::LinRange, cosθlim::LinRange, pxspectrum::AbstractMatrix
-        )
-        
-        # Integrate s over all boxes
-        prob = zeros(Float64, Np, Nang)
-        for i=1:Np, j=1:Nang
-            prob[i,j] = mean(pxspectrum[i:i+1, j:j+1])
-        end
-        Δcos = cosθlim[2]-cosθlim[1]
-        ΔlogP = logPlim[2]-logPlim[1]
-        total_flux = 2π*sum(prob)*(Δcos*ΔlogP)
-        prob ./= sum(prob)
-        boxCDF = cumsum(vec(prob))  # runs through first column, then 2nd, etc.
-
-        # Now create the 4 points for each box
-        pij = Array{Float64}(undef, Np*Nang, 4)
-        for j=1:Nang, i=1:Np
-            k=Np*(j-1)+i
-            pij[k,1] = pxspectrum[i,j]
-            pij[k,2] = pxspectrum[i+1,j]
-            pij[k,3] = pxspectrum[i,j+1]
-            pij[k,4] = pxspectrum[i+1,j+1]
-            pij[k,:] ./= mean(pij[k,:])
-        end
-
-        new(Np, Nang, Pmin, Pmax, total_flux, logPlim, cosθlim, prob, boxCDF, pij)
-    end
 end
+
+function CRGenerator(
+    Np::Integer, Nang::Integer, Pmin::P, Pmax::P,
+    logPGeVlim::LinRange, cosθlim::LinRange, 
+    Exspectrum::AbstractMatrix) where P<:Unitful.Momentum
+
+    # Integrate s over all boxes
+    relativeprob = zeros(eltype(Exspectrum), Np, Nang)
+    for i=1:Np, j=1:Nang
+        relativeprob[i,j] = mean(Exspectrum[i:i+1, j:j+1])
+    end
+    Δcos = cosθlim[2]-cosθlim[1]
+    ΔlogP = logPGeVlim[2]-logPGeVlim[1]
+    total_flux = 2π*Unitful.sr*sum(relativeprob)*(Δcos*ΔlogP)
+    prob = relativeprob ./ sum(relativeprob)
+    boxCDF = cumsum(vec(prob))  # runs through first column, then 2nd, etc.
+
+    # Now create the 4 points for each box
+    pij = Array{Float64}(undef, Np*Nang, 4)
+    for j=1:Nang, i=1:Np
+        k=Np*(j-1)+i
+        rp = relativeprob[i,j]
+        pij[k,1] = Exspectrum[i,j]/rp
+        pij[k,2] = Exspectrum[i+1,j]/rp
+        pij[k,3] = Exspectrum[i,j+1]/rp
+        pij[k,4] = Exspectrum[i+1,j+1]/rp
+    end
+    CRGenerator(Np, Nang, Pmin, Pmax, total_flux, logPGeVlim, cosθlim, prob, boxCDF, pij)
+end
+
 
 """
 CRMuonGenerator(Np, Nang; Pmin=0.1, Pmax=1000, useReyna=false)
@@ -65,25 +65,31 @@ N = 1000000;
 p,cosθ = generate(generator, N);
 ```
 """
-function CRMuonGenerator(Np::Integer, Nang::Integer; Pmin::Real=0.1, Pmax::Real=1000.0, useReyna::Bool=false)
-    logPlim = LinRange(log(Pmin), log(Pmax), 1+Np)
+function CRMuonGenerator(Np::Integer, Nang::Integer; 
+    Pmin::P=0.1u"GeV/c", Pmax::P=1000.0u"GeV/c", useReyna::Bool=false
+    ) where P<:Unitful.Momentum
+
+    logPGeVlim = LinRange(log(Pmin/GeVc), log(Pmax/GeVc), 1+Np)
     cosθlim = LinRange(0, 1, 1+Nang)
     if useReyna
         spectrum = µspectrum_reyna_p
     else
         spectrum = µspectrum_chatzidakis_p
     end
-    prob = zeros(Float64, Np, Nang)
-    s = zeros(Float64, 1+Np, 1+Nang)
+    esval = spectrum(GeVc, 1)*Unitful.GeV
+    s = zeros(eltype(esval), 1+Np, 1+Nang)
     for i=1:Np+1
-        p = exp(logPlim[i])
+        p = exp(logPGeVlim[i])*GeVc
+        KE = muon_E(p)
         for j=1:Nang+1
             c = cosθlim[j]
-            s[i,j] = p*spectrum(p, c)
+            s[i,j] = KE*spectrum(p, c)
         end
     end
-    CRGenerator(Np, Nang, Pmin, Pmax, logPlim, cosθlim, s)
+    CRGenerator(Np, Nang, Pmin, Pmax, logPGeVlim, cosθlim, s)
 end
+
+
 
 function CRGenerator(filename::AbstractString, mass::Real)
     lines = readlines(filename)
@@ -109,12 +115,12 @@ function CRGenerator(filename::AbstractString, mass::Real)
     @assert maximum(dlogp)-minimum(dlogp) < mean(dlogp)*1e-3
     @assert abs(log(p[1]/Pmin)) < 1e-4
     @assert abs(log(p[end]/Pmax)) < 1e-4
-    logPlim = LinRange(log(Pmin), log(Pmax), length(p))
+    logPGeVlim = LinRange(log(Pmin), log(Pmax), length(p))
     for i=1:Nang+1
         spectrum[:,i] .*= p
     end
 
-    CRGenerator(Np, Nang, Pmin, Pmax, logPlim, cosθlim, spectrum)
+    CRGenerator(Np, Nang, Pmin, Pmax, logPGeVlim, cosθlim, spectrum)
 end
 
 @enum Particle begin
@@ -153,35 +159,43 @@ Return `(p,cosθ)`, two vectors of length `N`, that are randomly generated cosmi
 using the generator `mg`. The momenta `p` are in units of GeV/c. The `cosθ` is the cosine of the zenith
 angle (thus cosθ=1 means vertical, and 0 means horizontal).
 """
-function generate(mg::CRGenerator, N::Integer)
-    boxid = [findfirst(x->x>r, mg.boxCDF) for r in rand(N)]
+function generate(crg::CRGenerator, N::Integer)
+    boxid = [findfirst(x->x>r, crg.boxCDF) for r in rand(N)]
 
     cosθ = Array{Float64}(undef, N)
     logp = Array{Float64}(undef, N)
-    dθ = mg.cosθlim[2]-mg.cosθlim[1]
-    dlogp = mg.logPlim[2]-mg.logPlim[1]
+    dθ = crg.cosθlim[2]-crg.cosθlim[1]
+    dlogp = crg.logPGeVlim[2]-crg.logPGeVlim[1]
     for i=1:N
         k = boxid[i]
-        boxi = 1 + ((k-1) % mg.Np)
-        boxj = 1 + div(k-1, mg.Np)
-        B = 0.5*(mg.pij[k,1] + mg.pij[k,2])
+        boxi = 1 + ((k-1) % crg.Np)
+        boxj = 1 + div(k-1, crg.Np)
+        B = 0.5*(crg.pij[k,1] + crg.pij[k,2])
         A = 1 - B
         Fy = rand()
         y = (sqrt(B^2 + 4A*Fy)-B)/2A
-        cosθ[i] = y*dθ + mg.cosθlim[boxj]
+        cosθ[i] = y*dθ + crg.cosθlim[boxj]
 
-        Bx = (1-y)*mg.pij[k,1] + y*mg.pij[k,3]
-        Ax = 0.5*((1-y)*(mg.pij[k,2]-mg.pij[k,1]) + y*(mg.pij[k,4]-mg.pij[k,3]))
-        rescale = Ax+Bx  # replace conditional prob with given y.
+        Bx = (1-y)*crg.pij[k,1] + y*crg.pij[k,3]
+        Ax = 0.5*((1-y)*(crg.pij[k,2]-crg.pij[k,1]) + y*(crg.pij[k,4]-crg.pij[k,3]))
+        rescale = Ax+Bx  # replace conditional relativeprob with given y.
         Ax /= rescale
         Bx /= rescale
         Fx = rand()
         x = (sqrt(Bx^2 + 4Ax*Fx)-Bx)/2Ax
-        logp[i] = x*dlogp + mg.logPlim[boxi]
+        logp[i] = x*dlogp + crg.logPGeVlim[boxi]
     end
-    p = exp.(logp)
+    p = exp.(logp)*1u"GeV/c"
     p, cosθ
 end
+
+"""
+    fluence(crg::CRGenerator, N=1)
+
+Return the total cross-sectional area x time product that corresponds to `N` cosmic rays generated by
+generator `crg`.
+"""
+fluence(crg::CRGenerator, N::Real=1) = N/crg.flux
 
 
 function path_values(obj::Solid, cosθ::AbstractVector)

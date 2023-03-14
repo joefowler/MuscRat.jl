@@ -14,4 +14,3 @@ GeVc=1u"GeV/c"
 @derived_dimension CRFlux inv(Unitful.𝐋^2*Unitful.𝐓)
 Unitful.promote_unit(::S, ::T) where {S<:Unitful.EnergyUnits, T<:Unitful.EnergyUnits} = u"GeV"
 Unitful.promote_unit(::S, ::T) where {S<:Unitful.MomentumUnits, T<:Unitful.MomentumUnits} = u"GeV/c"
-
