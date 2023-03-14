@@ -1,7 +1,5 @@
 using Unitful
 
-C = Unitful.c
-
 const mµ = 0.105659u"GeV/c^2"  # µ mass
 const me = 0.510999u"MeV/c^2"  # e± mass
 

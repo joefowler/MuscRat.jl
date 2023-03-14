@@ -4,7 +4,7 @@ using LinearAlgebra
     Line(n[, pt])
 
 Store a line in N-dimensional space. The line passes through point `pt` with a normal direction `n`.
-If `pt` is ommitted, it is taken to be the origin. If given, it must have the same length as `n`.
+If `pt` is omitted, it is taken to be the origin. If given, it must have the same length as `n`.
 """
 struct Line
     n::Vector{Float64}

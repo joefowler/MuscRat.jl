@@ -32,6 +32,7 @@ function CRGenerator(
     Δcos = cosθlim[2]-cosθlim[1]
     ΔlogP = logPGeVlim[2]-logPGeVlim[1]
     total_flux = 2π*Unitful.sr*sum(relativeprob)*(Δcos*ΔlogP)
+
     prob = relativeprob ./ sum(relativeprob)
     boxCDF = cumsum(vec(prob))  # runs through first column, then 2nd, etc.
 
@@ -91,36 +92,39 @@ end
 
 
 
-function CRGenerator(filename::AbstractString, mass::Real)
+function CRGenerator(filename::AbstractString, mass::T) where T<:Unitful.Mass
     lines = readlines(filename)
     header = split(lines[1], ",")
     Nang = parse(Int, header[1])
     Np = parse(Int, header[2])
-    Pmin = parse(Float64, header[3])
-    Pmax = parse(Float64, header[4])
+    Pmin = parse(Float64, header[3])*1u"MeV/c"
+    Pmax = parse(Float64, header[4])*1u"MeV/c"
 
     @assert Np == length(lines)-2
     @assert Nang == length(split(lines[2], ","))-2
     spectrum = zeros(Float64, 1+Np, 1+Nang)
     cosθlim = LinRange(0, 1, 1+Nang)
-    ke = Float64[]
+    KE = Array{typeof(1.0u"GeV")}(undef, Np+1)
     for i = 1:Np+1
         energystr, spectrumstr... = split(lines[i+1], ",")
-        push!(ke, parse(Float64, energystr))
+        KE[i] = parse(Float64, energystr)*1u"MeV"
         spectrum[i,:] .= [parse(Float64, x) for x in spectrumstr]
     end
-    p = sqrt.((ke.+mass).^2 .- mass^2)
-    dlogp = diff(log.(p))
-    @show maximum(dlogp)-minimum(dlogp), mean(dlogp)*1e-3
+    C = Unitful.c
+    if mass > 0u"g"
+        p = sqrt.((KE/Unitful.c).^2 .+2KE*mass)
+    else
+        p = KE/Unitful.c
+    end
+    dlogp = diff(log.(p./1u"MeV/c"))
+    # @show maximum(dlogp)-minimum(dlogp), mean(dlogp)*1e-3
     @assert maximum(dlogp)-minimum(dlogp) < mean(dlogp)*1e-3
     @assert abs(log(p[1]/Pmin)) < 1e-4
     @assert abs(log(p[end]/Pmax)) < 1e-4
-    logPGeVlim = LinRange(log(Pmin), log(Pmax), length(p))
-    for i=1:Nang+1
-        spectrum[:,i] .*= p
-    end
+    logPGeVlim = LinRange(log(Pmin/1u"GeV/c"), log(Pmax/1u"GeV/c"), length(p))
+    spectrum_units = u"1/cm^2/s/MeV/sr"
 
-    CRGenerator(Np, Nang, Pmin, Pmax, logPGeVlim, cosθlim, spectrum)
+    CRGenerator(Np, Nang, Pmin, Pmax, logPGeVlim, cosθlim, KE.*spectrum*spectrum_units)
 end
 
 @enum Particle begin
@@ -141,14 +145,14 @@ function ParmaGenerator(p::Particle)
         Positron => "data/parma_positron.txt",
     )
     masses = Dict(
-        Gamma => 0.0,
+        Gamma => 0.0u"GeV/c^2",
         µplus => mµ,
         µminus => mµ,
         Electron => me,
         Positron => me,
     )
     project_path(parts...) = normpath(joinpath(@__DIR__, "..", parts...))
-    return CRGenerator(project_path(localpaths[p]), masses[p]*1000)
+    return CRGenerator(project_path(localpaths[p]), masses[p])
 end
 
 
