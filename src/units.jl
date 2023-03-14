@@ -2,8 +2,16 @@ using Unitful
 
 C = Unitful.c
 
-const mµ = 0.105659u"GeV"/Unitful.c^2  # µ mass
-const me = 0.510999u"MeV"/Unitful.c^2  # e± mass
+const mµ = 0.105659u"GeV/c^2"  # µ mass
+const me = 0.510999u"MeV/c^2"  # e± mass
 
-E0 = 0u"GeV"
-p0 = 0u"GeV"/Unitful.c
+Ezero = 0u"GeV"
+Pzero = 0u"GeV/c"
+GeVc=1u"GeV/c"
+
+
+@derived_dimension CRSpectrum (Unitful.𝐌/Unitful.𝐓^3)
+@derived_dimension CRFlux inv(Unitful.𝐋^2*Unitful.𝐓)
+Unitful.promote_unit(::S, ::T) where {S<:Unitful.EnergyUnits, T<:Unitful.EnergyUnits} = u"GeV"
+Unitful.promote_unit(::S, ::T) where {S<:Unitful.MomentumUnits, T<:Unitful.MomentumUnits} = u"GeV/c"
+

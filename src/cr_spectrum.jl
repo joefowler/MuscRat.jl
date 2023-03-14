@@ -17,8 +17,8 @@ function µspectrum_chatzidakis(Eµ, cosθ)
     y0=1000u"g/cm^2";          # atmoshperic depth g/cm2
     Bµ=1.041231831u"GeV";      # correction factor (-); 
     ###############################################
-    Eµ < E0 && error("Negative µ kinetc energy")
-    cosθ ≤ 0 && return 0.0
+    Eµ < Ezero && error("Negative µ kinetc energy")
+    cosθ ≤ 0 && return 0.0A*λ
     secθ = 1/cosθ
 
     # Su eq (7): energy of the π that produced the µ
@@ -36,9 +36,9 @@ end
 function µspectrum_reyna_p(pµ, cosθ)
     # The Bugaev 1998 model as revised by Reyna 2006 for non-vertical muons, and as
     # reported in Su et al. 2021.
-    pµ < p0 && error("Negative µ momentum")
-    cosθ ≤ 0 && return 0.0
+    pµ < Pzero && error("Negative µ momentum")
     AB = 0.00253*u"1/GeV/s/sr/cm^2"
+    cosθ ≤ 0 && return 0AB
     a = [0.2455, 1.288, -0.2555, 0.0209]
     pµGeV = convert(Float64, pµ/u"GeV/c")
     y = log10(pµGeV*cosθ)
@@ -47,8 +47,8 @@ function µspectrum_reyna_p(pµ, cosθ)
     cosθ^3 * ΦBvert
 end
 
-muon_E(p) = p < p0 ? error("Negative µ momentum") : sqrt((p*Unitful.c)^2+(mµ*Unitful.c^2)^2)-mµ*Unitful.c^2
-muon_p(E) = E < E0 ? error("Negative µ kinetic energy") : sqrt((E+mµ*Unitful.c^2)^2-mµ^2*Unitful.c^4)/Unitful.c
+muon_E(p) = p < Pzero ? error("Negative µ momentum") : sqrt((p*Unitful.c)^2+(mµ*Unitful.c^2)^2)-mµ*Unitful.c^2
+muon_p(E) = E < Ezero ? error("Negative µ kinetic energy") : sqrt((E+mµ*Unitful.c^2)^2-mµ^2*Unitful.c^4)/Unitful.c
 
 µspectrum_chatzidakis_p(p, cosθ) = µspectrum_chatzidakis(muon_E(p), cosθ)
 µspectrum_reyna(E, cosθ) = µspectrum_reyna_p(muon_p(E), cosθ)
