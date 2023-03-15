@@ -9,7 +9,6 @@ using MuscRat, Unitful
         @test ustrip(f(arg, -.3)) == 0.0
         @test_throws Exception f(-arg, .5)
     end
-    mµ = MuscRat.mµ
     p = MuscRat.muon_p(E)
     @test µspectrum(E, 1) ≈ µspectrum_p(p, 1)
     @test µspectrum_reyna(E, 1) ≈ µspectrum_reyna_p(p, 1)

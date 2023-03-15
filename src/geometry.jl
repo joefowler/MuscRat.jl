@@ -1,4 +1,6 @@
 using LinearAlgebra
+using Unitful
+UnitL = Unitful.Length
 
 """
     Line(n[, pt])
@@ -8,17 +10,17 @@ If `pt` is omitted, it is taken to be the origin. If given, it must have the sam
 """
 struct Line
     n::Vector{Float64}
-    pt::Vector{Float64}
+    pt::Vector
 
-    function Line(n::AbstractVector{T}, pt::AbstractVector{U}) where {T,U <: Real}
+    function Line(n::AbstractVector{T}, pt::AbstractVector) where {T <: Real}
         if length(n) != length(pt)
             throw(DimensionMismatch("Direction vector and point must have equal length"))
         end
         new(n/norm(n), pt)
     end
 end
-Line(n::AbstractVector{T}) where {T<:Real} = Line(n, zero(n))
-point(line::Line, t::Real) = line.n*t+line.pt
+Line(n::AbstractVector{T}) where {T<:Real} = Line(n, zero(n)*1u"cm")
+point(line::Line, t::UnitL) = line.n*t+line.pt
 
 abstract type Solid end
 
@@ -28,10 +30,10 @@ abstract type Solid end
 Represent a sphere of radius `radius`.
 """
 struct Sphere <: Solid
-    radius::Float64
-    rad2::Float64
+    radius::UnitL
+    rad2
 
-    Sphere(r) = new(r, r^2)
+    Sphere(r) = new(r::UnitL, r^2)
 end
 
 """
@@ -40,20 +42,20 @@ end
 Represent a cylinder of radius `radius` and `height`, oriented along the `axis` axis (must be 1, 2, or 3).
 """
 struct Cylinder <: Solid
-    radius::Float64
-    rad2::Float64
-    height::Float64
+    radius::UnitL
+    rad2
+    height::UnitL
     axis::Int
 
-    function Cylinder(r::Real, h::Real, axis::Integer)
+    function Cylinder(r::UnitL, h::UnitL, axis::Integer)
         if !(axis in (1,2,3))
             error("Cylinder axis must be one of {1,2,3}")
         end
         new(r, r^2, h, axis)
     end
 end
-HCylinder(r::Real, h::Real) = Cylinder(r, h, 1)
-VCylinder(r::Real, h::Real) = Cylinder(r, h, 3)
+HCylinder(r::UnitL, h::UnitL) = Cylinder(r, h, 1)
+VCylinder(r::UnitL, h::UnitL) = Cylinder(r, h, 3)
 
 """
     Box(sides)
@@ -62,7 +64,7 @@ VCylinder(r::Real, h::Real) = Cylinder(r, h, 3)
 Represent an N-dimensional rectangular prism centered on the origin.
 """
 struct Box <: Solid
-    sides::Vector{Float64}
+    sides::Vector{UnitL}
 end
 Box(args...) = Box([args...])
 
@@ -130,8 +132,11 @@ function path(cyl::Cylinder, line::Line)
     # Step 1: At which 0, 1, or 2 points does line intersect the infinitely long version of cyl?
     # This means solving a quadratic equation (in general, though not quadratic if a=0).
     # r2 is the square distance of the line.pt from the cylinder axis
-    a = b = r2 = 0.0
-    for i=1:3
+    ZeroLength = 0.0u"cm"
+    a = 0.0
+    b = 0.0u"cm"
+    r2 = 0.0u"cm^2"
+     for i=1:3
         if i != cyl.axis
             a += line.n[i]^2
             b += 2*line.pt[i]*line.n[i]
@@ -139,14 +144,15 @@ function path(cyl::Cylinder, line::Line)
         end
     end
     c = r2-cyl.rad2
+    # Check special case: line & axis are parallel
     if a == 0
-        if c ≤ 0
+        if c ≤ 0u"cm^2"
             return cyl.height
         end
-        return 0.0
+        return ZeroLength
     end
-    disc = b - 4a*c
-    disc ≤ 0 && return 0 # negative or 0 discriminant means there's no intersection, or a length-0 tangent point only
+    disc = b^2 - 4a*c
+    disc ≤ 0.0u"cm^2" && return ZeroLength # negative or 0 discriminant means there's no intersection, or a length-0 tangent point only
 
     # Step 2: Solve quadratic. Find the points x1 and x2 where line enters/leaves the ∞ cylinder.
     avgt = -b/2a
@@ -163,8 +169,8 @@ function path(cyl::Cylinder, line::Line)
 
     # Find full points x1 and x2 (with x1[cyl.axis] ≤ x2[cyl.axis]) where line crosses the ∞ cylinder
     halfht = 0.5*cyl.height
-    x1[cyl.axis] ≥ halfht && return 0.0
-    x2[cyl.axis] ≤ -halfht && return 0.0
+    x1[cyl.axis] ≥ halfht && return ZeroLength
+    x2[cyl.axis] ≤ -halfht && return ZeroLength
 
     # Step 3.1: if x1 is outside the finite cylinder, move it to point on the x=-h/2 boundary
     if x1[cyl.axis] < -halfht
@@ -182,13 +188,8 @@ function path(s::Sphere, line::Line)
     # a = 1.0
     b = 2dot(line.n, line.pt)
     c = dot(line.pt, line.pt) - s.rad2
-    disc = b - 4c
-    disc ≤ 0 && return 0 # negative or 0 discriminant means doesn't have finite-length intersection
-
-    # avgt = -b/2
-    # difft = sqrt(disc)/2
-    # t1 = avgt-difft
-    # t2 = avgt+difft
+    disc = b^2 - 4c
+    disc ≤ 0.0u"cm^2" && return 0.0u"cm" # negative or 0 discriminant means doesn't have finite-length intersection
 
     # The distance between these points is the abs difference of the t values
     sqrt(disc)
