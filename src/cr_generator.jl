@@ -92,13 +92,23 @@ end
 
 
 
-function CRGenerator(filename::AbstractString, mass::T) where T<:Unitful.Mass
+function CRGenerator(filename::AbstractString, mass::T; Pmin=nothing, Pmax=nothing) where T<:Unitful.Mass
     lines = readlines(filename)
     header = split(lines[1], ",")
     Nang = parse(Int, header[1])
     Np = parse(Int, header[2])
-    Pmin = parse(Float64, header[3])*1u"MeV/c"
-    Pmax = parse(Float64, header[4])*1u"MeV/c"
+    PminData = parse(Float64, header[3])*1u"MeV/c"
+    PmaxData = parse(Float64, header[4])*1u"MeV/c"
+    if Pmin === nothing
+        Pmin = PminData
+    elseif Pmin < PminData
+        throw(ErrorException("Pmin=$(Pmin) is less than the file's limit of $(PminData)"))
+    end
+    if Pmax === nothing
+        Pmax = PmaxData
+    elseif Pmax > PmaxData
+        throw(ErrorException("Pmax=$(Pmax) is greater than the file's limit of $(PmaxData)"))
+    end
 
     @assert Np == length(lines)-2
     @assert Nang == length(split(lines[2], ","))-2
@@ -117,10 +127,10 @@ function CRGenerator(filename::AbstractString, mass::T) where T<:Unitful.Mass
         p = KE/Unitful.c
     end
     dlogp = diff(log.(p./1u"MeV/c"))
-    # @show maximum(dlogp)-minimum(dlogp), mean(dlogp)*1e-3
     @assert maximum(dlogp)-minimum(dlogp) < mean(dlogp)*1e-3
-    @assert abs(log(p[1]/Pmin)) < 1e-4
-    @assert abs(log(p[end]/Pmax)) < 1e-4
+
+    @assert abs(log(p[1]/PminData)) < 1e-4
+    @assert abs(log(p[end]/PmaxData)) < 1e-4
     logPGeVlim = LinRange(log(Pmin/1u"GeV/c"), log(Pmax/1u"GeV/c"), length(p))
     spectrum_units = u"1/cm^2/s/MeV/sr"
 
@@ -136,7 +146,7 @@ end
 end
 
 
-function ParmaGenerator(p::Particle)
+function ParmaGenerator(p::Particle; Pmin=nothing, Pmax=nothing)
     localpaths = Dict(
         Gamma => "data/parma_gamma.txt",
         µplus => "data/parma_mu+.txt",
@@ -152,7 +162,7 @@ function ParmaGenerator(p::Particle)
         Positron => me,
     )
     project_path(parts...) = normpath(joinpath(@__DIR__, "..", parts...))
-    return CRGenerator(project_path(localpaths[p]), masses[p])
+    return CRGenerator(project_path(localpaths[p]), masses[p]; Pmin=Pmin, Pmax=Pmax)
 end
 
 
