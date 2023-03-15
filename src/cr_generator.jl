@@ -21,7 +21,7 @@ end
 
 function CRGenerator(
     Np::Integer, Nang::Integer, Pmin::P, Pmax::P,
-    logPGeVlim::LinRange, cosθlim::LinRange, 
+    logPGeVlim::LinRange, cosθlim::LinRange,
     Exspectrum::AbstractMatrix) where P<:Unitful.Momentum
 
     # Integrate s over all boxes
@@ -66,7 +66,7 @@ N = 1000000;
 p,cosθ = generate(generator, N);
 ```
 """
-function CRMuonGenerator(Np::Integer, Nang::Integer; 
+function CRMuonGenerator(Np::Integer, Nang::Integer;
     Pmin::P=0.1u"GeV/c", Pmax::P=1000.0u"GeV/c", useReyna::Bool=false
     ) where P<:Unitful.Momentum
 
@@ -87,7 +87,7 @@ function CRMuonGenerator(Np::Integer, Nang::Integer;
             s[i,j] = KE*spectrum(p, c)
         end
     end
-    CRGenerator(Np, Nang, Pmin, Pmax, logPGeVlim, cosθlim, s)
+    CRGenerator(Np, Nang, float(Pmin), float(Pmax), logPGeVlim, cosθlim, s)
 end
 
 
