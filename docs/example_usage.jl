@@ -1,5 +1,5 @@
-using PyPlot, MuscRat, Statistics
-import Unitful.cm, Unitful.mm
+using PyPlot, MuscRat, Statistics, Unitful
+import Unitful.cm, Unitful.mm, Unitful.MeV
 
 # Make 7 "NaI" objects of equal volume: a sphere, three cylinders oriented vertically then horizontally
 r = 3.81cm
@@ -36,16 +36,16 @@ total_paths = Dict([(k,MuscRat.path_values(obj, cosθ)) for (k,obj) in solids])
 eloss_tkid = Eloss_function(:Silicon, :µ)
 eloss_scint = Eloss_function(:NaI, :µ)
 
-LossRate_tkid = eloss_tkid.(pMeV)
-LossRate_scint = eloss_scint.(pMeV)
+LossRate_tkid = eloss_tkid.(p)
+LossRate_scint = eloss_scint.(p)
 lossrate = Dict([(k,LossRate_scint) for k in keys(solids)])
 lossrate[:thin_tkid] = LossRate_tkid
 lossrate[:thick_tkid] = LossRate_tkid
 
-loss = Dict{Symbol, Vector{Float64}}()
+loss = Dict{Symbol, Vector}()
 for k in keys(solids)
-    P = total_paths[k]
-    loss[k] = (P.*lossrate[k])[P.>0]
+    plen = total_paths[k]
+    loss[k] = uconvert.(MeV, plen.*lossrate[k])[plen.>0cm]
 end
 
 names = Dict(
@@ -94,10 +94,10 @@ function plot_results(solids, loss, smear=0.0; NaI=true)
 
     if NaI
         detectors = (:cylH1, :cylH2, :cylH3, :cylV1, :cylV2, :cylV3, :sphere)
-        Pmax, Lmax = 2smallest_radius(solids[:cylH1]), 180
+        Pmax, Lmax = 2smallest_radius(solids[:cylH1]), 150MeV
     else
         detectors = (:thick_tkid, :thin_tkid)
-        Pmax, Lmax = 0.75, 5
+        Pmax, Lmax = 7.5mm, 5MeV
     end
 
     for k in detectors
@@ -107,9 +107,10 @@ function plot_results(solids, loss, smear=0.0; NaI=true)
         Δbin = Lmax/N_lbins
 
         sca(ax1)
-        tp = total_paths[k]
-        lw = k == :cylH2 ? 2 : 1
-        c, _, _ = hist(tp[tp.>0], 500, [0,Pmax], histtype="step", color=objcolors[k], label=names[k], lw=lw)
+        lw = (k == :cylH2 ? 2 : 1)
+        tp_cm = convert.(Float64, total_paths[k]/1cm)
+        @show tp_cm[1:10]
+        c, _, _ = hist(tp_cm[tp_cm.>0], 500, [0,convert(Float64,Pmax/1cm)], histtype="step", color=objcolors[k], label=names[k], lw=lw)
 
         sca(ax2)
         weight = 1/(total_time*Δbin)
@@ -118,7 +119,8 @@ function plot_results(solids, loss, smear=0.0; NaI=true)
         if smear > 0
             L = L .* exp.(smear*randn(Ndetector_hits))
         end
-        c, _, _ = hist(L, N_lbins, [0,Lmax], histtype="step", weights=weight.+zero(L),
+        wtunits = 1u"1/s/MeV"
+        c, _, _ = hist(L/MeV, N_lbins, [0,Lmax/MeV], histtype="step", weights=zeros(length(L)).+weight/wtunits,
                         color=objcolors[k], label=names[k], lw=lw)
         hitrate = Ndetector_hits/total_time
         @show k, hitrate
@@ -128,7 +130,7 @@ function plot_results(solids, loss, smear=0.0; NaI=true)
     nothing
 end
 
-plot_results(solids, loss; NaI=true)
+plot_results(solids, loss; NaI=false)
 
 # using HDF5
 # function store_results(solids, loss, smear=0.0; NaI=true)
