@@ -1,8 +1,8 @@
 using PyPlot, MuscRat, Statistics
-
+import Unitful.cm, Unitful.mm
 
 # Make 7 "NaI" objects of equal volume: a sphere, three cylinders oriented vertically then horizontally
-r = 3.81
+r = 3.81cm
 h = 2r
 NaIH2 = HCylinder(r, h)
 NaIV2 = VCylinder(r, h)
@@ -11,11 +11,12 @@ NaIV1 = VCylinder(r/sqrt(2), 2h)
 NaIH3 = HCylinder(sqrt(2)*r, h/2)
 NaIV3 = VCylinder(sqrt(2)*r, h/2)
 v = volume(NaIH2)
-NaISphere = Sphere((3/(4π)*v)^(1/3))
+rsphere = (3/(4π)*v)^(1/3)
+NaISphere = Sphere(rsphere)
 
 solids = Dict(
-    :thick_tkid => Box(.5, .5, .15),
-    :thin_tkid => Box(.5, .5, .05),
+    :thick_tkid => Box(5mm, 5mm, 1.5mm),
+    :thin_tkid => Box(5mm, 5mm, 0.5mm),
     :cylH1 => NaIH1,
     :cylH2 => NaIH2,
     :cylH3 => NaIH3,
@@ -25,10 +26,9 @@ solids = Dict(
     :sphere => NaISphere,
 )
 
-N = 10000000
+N = 1000000
 generator = CRMuonGenerator(100, 100);
-pGeV,cosθ = generate(generator, N);
-pMeV = 1000pGeV
+@time p,cosθ = generate(generator, N);
 println("Generated $N muons")
 
 total_paths = Dict([(k,MuscRat.path_values(obj, cosθ)) for (k,obj) in solids])

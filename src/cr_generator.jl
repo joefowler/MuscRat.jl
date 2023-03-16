@@ -215,7 +215,7 @@ fluence(crg::CRGenerator, N::Real=1) =uconvert(u"cm^2*s", N/crg.flux)
 function path_values(obj::Solid, cosθ::AbstractVector)
     tube_radius = smallest_radius(obj)
     N = length(cosθ)
-    L = Array{Float64}(undef, N)
+    L = zeros(typeof(tube_radius), N)
     for i=1:N
         # Random azimuthal angle
         ϕ = 2π*rand()

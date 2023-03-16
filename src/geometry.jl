@@ -96,6 +96,7 @@ always enclose the object, regardless of the tube orientation.
 tube_area(obj::Solid) = π*smallest_radius(obj)^2
 
 function path(box::Box, line::Line)
+    ZeroLength = zero(box.sides[1])
     crossings = []
     for i=1:3
         line.n[i]==0 && continue
@@ -115,7 +116,7 @@ function path(box::Box, line::Line)
             end
         end
     end
-    length(crossings) == 0 && return 0.0
+    length(crossings) == 0 && return ZeroLength
     # There should be exactly 2 good points.
     # The same 2 points can appear 2x each, though, if they are at the edges or corners of the box.
     # Even in that "corner case", the first 2 are guaranteed to be opposite one another.
@@ -132,10 +133,10 @@ function path(cyl::Cylinder, line::Line)
     # Step 1: At which 0, 1, or 2 points does line intersect the infinitely long version of cyl?
     # This means solving a quadratic equation (in general, though not quadratic if a=0).
     # r2 is the square distance of the line.pt from the cylinder axis
-    ZeroLength = 0.0u"cm"
+    ZeroLength = zero(cyl.height)
     a = 0.0
-    b = 0.0u"cm"
-    r2 = 0.0u"cm^2"
+    b = ZeroLength
+    r2 = ZeroLength^2
      for i=1:3
         if i != cyl.axis
             a += line.n[i]^2
@@ -146,13 +147,13 @@ function path(cyl::Cylinder, line::Line)
     c = r2-cyl.rad2
     # Check special case: line & axis are parallel
     if a == 0
-        if c ≤ 0u"cm^2"
+        if c ≤ ZeroLength^2
             return cyl.height
         end
         return ZeroLength
     end
     disc = b^2 - 4a*c
-    disc ≤ 0.0u"cm^2" && return ZeroLength # negative or 0 discriminant means there's no intersection, or a length-0 tangent point only
+    disc ≤ ZeroLength^2 && return ZeroLength # negative or 0 discriminant means there's no intersection, or a length-0 tangent point only
 
     # Step 2: Solve quadratic. Find the points x1 and x2 where line enters/leaves the ∞ cylinder.
     avgt = -b/2a
@@ -184,12 +185,13 @@ function path(cyl::Cylinder, line::Line)
 end
 
 function path(s::Sphere, line::Line)
+    ZeroLength = zero(s.radius)
     # Find the points (if any) where t allows ||pt+n⋅t|| = r^2
     # a = 1.0
     b = 2dot(line.n, line.pt)
     c = dot(line.pt, line.pt) - s.rad2
     disc = b^2 - 4c
-    disc ≤ 0.0u"cm^2" && return 0.0u"cm" # negative or 0 discriminant means doesn't have finite-length intersection
+    disc ≤ ZeroLength^2 && return ZeroLength # negative or 0 discriminant means doesn't have finite-length intersection
 
     # The distance between these points is the abs difference of the t values
     sqrt(disc)
