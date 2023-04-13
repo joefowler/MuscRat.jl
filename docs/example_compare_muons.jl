@@ -66,9 +66,10 @@ function plot_distributions(total_paths, LossRate_tkid, ceiling_loss=true)
     ylabel("Counts / GeV / cm\$^2\$ / second")
     ax3 = subplot(313); semilogy(); xlabel("Energy loss in device (MeV)")
     ylabel("Counts / MeV / second")
-    Nbins = 1000
+    Nbins = 2000
     Pmax = 200.0
     Emax = 200.0
+    lossbins = 500
     lossMax = 5.0
     area = 0.5^2
     for i=1:3
@@ -80,17 +81,17 @@ function plot_distributions(total_paths, LossRate_tkid, ceiling_loss=true)
         sca(ax1)
         binwidth = Pmax/Nbins
         w = ones(length(pGeV))/(Ttotal/1u"s")/binwidth/area
-        hist(pGeV, 1000, [0, Pmax], histtype="step", weights=w)
+        hist(pGeV, Nbins, [0, Pmax], histtype="step", weights=w)
 
         sca(ax2)
         binwidth = Emax/Nbins
         w = ones(length(EGeV))/(Ttotal/1u"s")/binwidth/area
-        hist(EGeV, 1000, [0, Emax], histtype="step", weights=w)
+        hist(EGeV, Nbins, [0, Emax], histtype="step", weights=w)
 
         sca(ax3)
-        binwidth = lossMax/Nbins
+        binwidth = lossMax/lossbins
         w = ones(length(lossMeV))/(Ttotal/1u"s")/binwidth
-        hist(lossMeV, Nbins, [0, lossMax], histtype="step", weights=w, label=algorithms[i])
+        hist(lossMeV, lossbins, [0, lossMax], histtype="step", weights=w, label=algorithms[i])
     end
     legend()
 end
