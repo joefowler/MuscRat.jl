@@ -13,54 +13,56 @@ struct CRGenerator{P<:Unitful.Momentum, CRF<:CRFlux}
     flux::CRF  # units are counts cm^-2 s^-1 (energy and solid angle already integrated over)
 
     logPGeVlim::LinRange
-    EGeVlim::Vector{Float64}
+    KEGeVlim::Vector{Float64}
+    massMeV::Float64
     cosθlim::LinRange
     relativeprob::Matrix{Float64}
     boxCDF::Vector{Float64}
     pij::Matrix{Float64}
 end
 
-function integrateSpectrum(Exspectrum::AbstractMatrix, esamples::AbstractVector, ysamples::LinRange)
-    Np, Nc = size(Exspectrum)
-    function midpoint_integral(x::AbstractVector, y::AbstractVector)
-        dx = diff(x)
-        ymid = 0.5*(y[2:end]+y[1:end-1])
-        dot(dx, ymid)
-    end
-    fval = [2π*Unitful.sr*midpoint_integral(ysamples, Exspectrum[i,:]) for i=1:Np]
-    midpoint_integral(esamples, fval)
-end
-
 function CRGenerator(
     Np::Integer, Nang::Integer, Pmin::P, Pmax::P,
-    logPGeVlim::LinRange, EGeVlim::AbstractVector, cosθlim::LinRange,
-    Exspectrum::AbstractMatrix) where P<:Unitful.Momentum
-    total_flux = uconvert(u"cm^-2/s", integrateSpectrum(Exspectrum, EGeVlim, cosθlim))
+    logPGeVlim::LinRange, mass::M, cosθlim::LinRange,
+    Exspectrum::AbstractMatrix) where {P<:Unitful.Momentum, M<:Unitful.Mass}
 
-    # Integrate spectrum over all boxes
-    relativeprob = zeros(eltype(Exspectrum), Np, Nang)
+    p = exp.(logPGeVlim)*1u"GeV/c"
+    totalE = sqrt.((p*Unitful.c).^2 .+ (mass*Unitful.c^2)^2)
+    kineticE = totalE .- mass*Unitful.c^2
+
+    # Integrate spectrum within each box
+    spectrum_integral = zeros(typeof(0.0u"cm^-2/s"), Np, Nang)
+    Δcosθ = diff(cosθlim)
+    ΔΩ = 2π*Unitful.sr*Δcosθ
+    Δlogp = diff(logPGeVlim)
+    pdpdT = (p*Unitful.c).^2 ./(kineticE .+ mass*Unitful.c^2)
+    integrand = Exspectrum.*pdpdT
     for i=1:Np, j=1:Nang
-        relativeprob[i,j] = mean(Exspectrum[i:i+1, j:j+1])
+        spectrum_integral[i,j] = mean(integrand[i:i+1, j:j+1])*ΔΩ[j]*Δlogp[i]
     end
+    total_flux = sum(spectrum_integral)
 
-    prob = relativeprob ./ sum(relativeprob)
+    prob = (spectrum_integral ./ total_flux) .|> NoUnits
     boxCDF = cumsum(vec(prob))  # runs through first column, then 2nd, etc.
 
-    # Now create the 4 points for each box
+    # Now create the 4 points for each box. Used to distribute (p, cosθ) within
+    # the box if the box is selected later for generating a CR.
     pij = Array{Float64}(undef, Np*Nang, 4)
     for j=1:Nang, i=1:Np
         k=Np*(j-1)+i
-        rp = relativeprob[i,j]
+        rp = spectrum_integral[i,j]
         if ustrip(rp) > 0
-            pij[k,1] = Exspectrum[i,j]/rp
-            pij[k,2] = Exspectrum[i+1,j]/rp
-            pij[k,3] = Exspectrum[i,j+1]/rp
-            pij[k,4] = Exspectrum[i+1,j+1]/rp
+            pij[k,1] = integrand[i,j]/rp
+            pij[k,2] = integrand[i+1,j]/rp
+            pij[k,3] = integrand[i,j+1]/rp
+            pij[k,4] = integrand[i+1,j+1]/rp
         else
             pij[k,:] .= 1.0
         end
     end
-    CRGenerator(Np, Nang, Pmin, Pmax, total_flux, logPGeVlim, EGeVlim/Unitful.GeV, cosθlim, prob, boxCDF, pij)
+    massMeV = mass/1u"MeV/c^2"|> NoUnits
+    EGeVlim = (kineticE/Unitful.GeV) .|> NoUnits
+    CRGenerator(Np, Nang, Pmin, Pmax, total_flux, logPGeVlim, EGeVlim, massMeV, cosθlim, prob, boxCDF, pij)
 end
 
 
@@ -86,7 +88,6 @@ function CRMuonGenerator(Np::Integer, Nang::Integer;
 
     logPGeVlim = LinRange(log(Pmin/GeVc), log(Pmax/GeVc), 1+Np)
     p = exp.(logPGeVlim)*u"GeV/c"
-    EGeVlim = muon_E.(p)
     cosθlim = LinRange(0, 1, 1+Nang)
     if useReyna
         spectrum = µspectrum_reyna_p
@@ -103,7 +104,7 @@ function CRMuonGenerator(Np::Integer, Nang::Integer;
             s[i,j] = spectrum(p, c)
         end
     end
-    CRGenerator(Np, Nang, float(Pmin), float(Pmax), logPGeVlim, EGeVlim, cosθlim, s)
+    CRGenerator(Np, Nang, float(Pmin), float(Pmax), logPGeVlim, mµ, cosθlim, s)
 end
 
 
@@ -152,7 +153,7 @@ function CRGenerator(filename::AbstractString, mass::T; Pmin=nothing, Pmax=nothi
 
     logPGeVlim = LinRange(log(Pmin/1u"GeV/c"), log(Pmax/1u"GeV/c"), length(p))
     spectrum_units = u"1/cm^2/s/MeV/sr"
-    CRGenerator(Np, Nang, Pmin, Pmax, logPGeVlim, KE, cosθlim, spectrum*spectrum_units)
+    CRGenerator(Np, Nang, Pmin, Pmax, logPGeVlim, mass, cosθlim, spectrum*spectrum_units)
 end
 
 @enum Particle begin
