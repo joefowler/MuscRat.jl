@@ -7,7 +7,6 @@ particles = (
     MuscRat.Positron,
     MuscRat.Gamma,
 )
-masses =
 
 TKID = Box([5, 5, 1.5]*u"mm")
 area = MuscRat.tube_area(TKID)

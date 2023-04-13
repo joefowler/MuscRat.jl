@@ -14,9 +14,9 @@ function µspectrum_chatzidakis(Eµ, cosθ)
     α = 2.5u"MeV/(g/cm^2)";    # muon energy loss in MeV/g/cm2
     ρ = 0.76;                  # fraction of pion energy that is transferred to muon
     y0=1000u"g/cm^2";          # atmoshperic depth g/cm2
-    Bµ=1.041231831u"GeV";      # correction factor (-); 
+    Bµ=1.041231831u"GeV";      # correction factor (-);
     ###############################################
-    Eµ < Ezero && error("Negative µ kinetc energy")
+    Eµ < Ezero && error("Negative µ kinetic energy")
     cosθ ≤ 0 && return 0.0A*λ
     secθ = 1/cosθ
 
