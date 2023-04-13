@@ -1,6 +1,5 @@
 using LinearAlgebra
 using Unitful
-UnitL = Unitful.Length
 
 """
     Line(n[, pt])
@@ -20,7 +19,7 @@ struct Line
     end
 end
 Line(n::AbstractVector{T}) where {T<:Real} = Line(n, zero(n)*1u"cm")
-point(line::Line, t::UnitL) = line.n*t+line.pt
+point(line::Line, t::Unitful.Length) = line.n*t+line.pt
 
 abstract type Solid end
 
@@ -30,10 +29,10 @@ abstract type Solid end
 Represent a sphere of radius `radius`.
 """
 struct Sphere <: Solid
-    radius::UnitL
+    radius::Unitful.Length
     rad2
 
-    Sphere(r) = new(r::UnitL, r^2)
+    Sphere(r) = new(r::Unitful.Length, r^2)
 end
 
 """
@@ -42,20 +41,20 @@ end
 Represent a cylinder of radius `radius` and `height`, oriented along the `axis` axis (must be 1, 2, or 3).
 """
 struct Cylinder <: Solid
-    radius::UnitL
+    radius::Unitful.Length
     rad2
-    height::UnitL
+    height::Unitful.Length
     axis::Int
 
-    function Cylinder(r::UnitL, h::UnitL, axis::Integer)
+    function Cylinder(r::Unitful.Length, h::Unitful.Length, axis::Integer)
         if !(axis in (1,2,3))
             error("Cylinder axis must be one of {1,2,3}")
         end
         new(r, r^2, h, axis)
     end
 end
-HCylinder(r::UnitL, h::UnitL) = Cylinder(r, h, 1)
-VCylinder(r::UnitL, h::UnitL) = Cylinder(r, h, 3)
+HCylinder(r::Unitful.Length, h::Unitful.Length) = Cylinder(r, h, 1)
+VCylinder(r::Unitful.Length, h::Unitful.Length) = Cylinder(r, h, 3)
 
 """
     Box(sides)
@@ -64,7 +63,7 @@ VCylinder(r::UnitL, h::UnitL) = Cylinder(r, h, 3)
 Represent an N-dimensional rectangular prism centered on the origin.
 """
 struct Box <: Solid
-    sides::Vector{UnitL}
+    sides::Vector{Unitful.Length}
 end
 Box(args...) = Box([args...])
 
