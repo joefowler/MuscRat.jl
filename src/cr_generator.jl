@@ -1,4 +1,4 @@
-using Statistics, Unitful
+using Statistics, Unitful, LinearAlgebra
 
 """
     CRGenerator(....)
@@ -13,25 +13,35 @@ struct CRGenerator{P<:Unitful.Momentum, CRF<:CRFlux}
     flux::CRF  # units are counts cm^-2 s^-1 (energy and solid angle already integrated over)
 
     logPGeVlim::LinRange
+    EGeVlim::Vector{Float64}
     cosθlim::LinRange
     relativeprob::Matrix{Float64}
     boxCDF::Vector{Float64}
     pij::Matrix{Float64}
 end
 
+function integrateSpectrum(Exspectrum::AbstractMatrix, esamples::AbstractVector, ysamples::LinRange)
+    Np, Nc = size(Exspectrum)
+    function midpoint_integral(x::AbstractVector, y::AbstractVector)
+        dx = diff(x)
+        ymid = 0.5*(y[2:end]+y[1:end-1])
+        dot(dx, ymid)
+    end
+    fval = [2π*Unitful.sr*midpoint_integral(ysamples, Exspectrum[i,:]) for i=1:Np]
+    midpoint_integral(esamples, fval)
+end
+
 function CRGenerator(
     Np::Integer, Nang::Integer, Pmin::P, Pmax::P,
-    logPGeVlim::LinRange, cosθlim::LinRange,
+    logPGeVlim::LinRange, EGeVlim::AbstractVector, cosθlim::LinRange,
     Exspectrum::AbstractMatrix) where P<:Unitful.Momentum
+    total_flux = uconvert(u"cm^-2/s", integrateSpectrum(Exspectrum, EGeVlim, cosθlim))
 
-    # Integrate s over all boxes
+    # Integrate spectrum over all boxes
     relativeprob = zeros(eltype(Exspectrum), Np, Nang)
     for i=1:Np, j=1:Nang
         relativeprob[i,j] = mean(Exspectrum[i:i+1, j:j+1])
     end
-    Δcos = cosθlim[2]-cosθlim[1]
-    ΔlogP = logPGeVlim[2]-logPGeVlim[1]
-    total_flux = uconvert(u"cm^-2/s", 2π*Unitful.sr*sum(relativeprob)*(Δcos*ΔlogP))
 
     prob = relativeprob ./ sum(relativeprob)
     boxCDF = cumsum(vec(prob))  # runs through first column, then 2nd, etc.
@@ -41,17 +51,21 @@ function CRGenerator(
     for j=1:Nang, i=1:Np
         k=Np*(j-1)+i
         rp = relativeprob[i,j]
-        pij[k,1] = Exspectrum[i,j]/rp
-        pij[k,2] = Exspectrum[i+1,j]/rp
-        pij[k,3] = Exspectrum[i,j+1]/rp
-        pij[k,4] = Exspectrum[i+1,j+1]/rp
+        if ustrip(rp) > 0
+            pij[k,1] = Exspectrum[i,j]/rp
+            pij[k,2] = Exspectrum[i+1,j]/rp
+            pij[k,3] = Exspectrum[i,j+1]/rp
+            pij[k,4] = Exspectrum[i+1,j+1]/rp
+        else
+            pij[k,:] .= 1.0
+        end
     end
-    CRGenerator(Np, Nang, Pmin, Pmax, total_flux, logPGeVlim, cosθlim, prob, boxCDF, pij)
+    CRGenerator(Np, Nang, Pmin, Pmax, total_flux, logPGeVlim, EGeVlim/Unitful.GeV, cosθlim, prob, boxCDF, pij)
 end
 
 
 """
-CRMuonGenerator(Np, Nang; Pmin=0.1, Pmax=1000, useReyna=false)
+CRMuonGenerator(Np, Nang; Pmin=0.1u"GeV/c", Pmax=1000u"GeV/c", useReyna=false)
 
 Returns a cosmic ray muon generator. The numerical integration is perfomed using `Np` momentum bins and
 `Nang` angle bins. The momentum bins are logarithmically spaced between the energy `Pmin` and `Pmax`
@@ -71,23 +85,25 @@ function CRMuonGenerator(Np::Integer, Nang::Integer;
     ) where P<:Unitful.Momentum
 
     logPGeVlim = LinRange(log(Pmin/GeVc), log(Pmax/GeVc), 1+Np)
+    p = exp.(logPGeVlim)*u"GeV/c"
+    EGeVlim = muon_E.(p)
     cosθlim = LinRange(0, 1, 1+Nang)
     if useReyna
         spectrum = µspectrum_reyna_p
     else
         spectrum = µspectrum_chatzidakis_p
     end
-    esval = spectrum(GeVc, 1)*Unitful.GeV
-    s = zeros(eltype(esval), 1+Np, 1+Nang)
+    sample_spectrum_val = spectrum(GeVc, 1)
+    s = zeros(eltype(sample_spectrum_val), 1+Np, 1+Nang)
     for i=1:Np+1
         p = exp(logPGeVlim[i])*GeVc
         KE = muon_E(p)
         for j=1:Nang+1
             c = cosθlim[j]
-            s[i,j] = KE*spectrum(p, c)
+            s[i,j] = spectrum(p, c)
         end
     end
-    CRGenerator(Np, Nang, float(Pmin), float(Pmax), logPGeVlim, cosθlim, s)
+    CRGenerator(Np, Nang, float(Pmin), float(Pmax), logPGeVlim, EGeVlim, cosθlim, s)
 end
 
 
@@ -126,15 +142,17 @@ function CRGenerator(filename::AbstractString, mass::T; Pmin=nothing, Pmax=nothi
     else
         p = KE/Unitful.c
     end
+
+    # Verify that the table is (approximately) evenly spaced in momentum,
+    # with min and max momentum matching what the table header says to expect.
     dlogp = diff(log.(p./1u"MeV/c"))
     @assert maximum(dlogp)-minimum(dlogp) < mean(dlogp)*1e-3
-
     @assert abs(log(p[1]/PminData)) < 1e-4
     @assert abs(log(p[end]/PmaxData)) < 1e-4
+
     logPGeVlim = LinRange(log(Pmin/1u"GeV/c"), log(Pmax/1u"GeV/c"), length(p))
     spectrum_units = u"1/cm^2/s/MeV/sr"
-
-    CRGenerator(Np, Nang, Pmin, Pmax, logPGeVlim, cosθlim, KE.*spectrum*spectrum_units)
+    CRGenerator(Np, Nang, Pmin, Pmax, logPGeVlim, KE, cosθlim, spectrum*spectrum_units)
 end
 
 @enum Particle begin
@@ -145,6 +163,13 @@ end
     Positron
 end
 
+masses = Dict(
+    Gamma => 0.0u"GeV/c^2",
+    µplus => mµ,
+    µminus => mµ,
+    Electron => me,
+    Positron => me,
+)
 
 function ParmaGenerator(p::Particle; Pmin=nothing, Pmax=nothing)
     localpaths = Dict(
@@ -153,13 +178,6 @@ function ParmaGenerator(p::Particle; Pmin=nothing, Pmax=nothing)
         µminus => "data/parma_mu-.txt",
         Electron => "data/parma_electron.txt",
         Positron => "data/parma_positron.txt",
-    )
-    masses = Dict(
-        Gamma => 0.0u"GeV/c^2",
-        µplus => mµ,
-        µminus => mµ,
-        Electron => me,
-        Positron => me,
     )
     project_path(parts...) = normpath(joinpath(@__DIR__, "..", parts...))
     return CRGenerator(project_path(localpaths[p]), masses[p]; Pmin=Pmin, Pmax=Pmax)
