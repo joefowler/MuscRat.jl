@@ -123,8 +123,6 @@ masses = Dict(
     Positron => me,
 )
 
-
-
 function readParma(filename::AbstractString, mass::T) where T<:Unitful.Mass
     lines = readlines(filename)
     header = split(lines[1], ",")
@@ -164,7 +162,7 @@ function readParma(filename::AbstractString, mass::T) where T<:Unitful.Mass
     Np, Nang, Pmin, Pmax, logPGeVlim, mass, cosθlim, spectrum*spectrum_units, KE, flux
 end
 
-function readParma(p::Particle) where T<:Unitful.Mass
+function readParma(p::Particle)
     localpaths = Dict(
         Gamma => "data/parma_gamma.txt",
         µplus => "data/parma_mu+.txt",
