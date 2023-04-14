@@ -83,7 +83,7 @@ p,cosθ = generate(generator, N);
 ```
 """
 function CRMuonGenerator(Np::Integer, Nang::Integer;
-    Pmin::P=0.1u"GeV/c", Pmax::P=1000.0u"GeV/c", useReyna::Bool=false
+    Pmin::P=0.1u"GeV/c", Pmax::P=1000.0u"GeV/c", useReyna::Bool=false, y=860.0u"g/cm^2"
     ) where P<:Unitful.Momentum
 
     logPGeVlim = LinRange(log(Pmin/GeVc), log(Pmax/GeVc), 1+Np)
@@ -92,7 +92,7 @@ function CRMuonGenerator(Np::Integer, Nang::Integer;
     if useReyna
         spectrum = µspectrum_reyna_p
     else
-        spectrum = µspectrum_chatzidakis_p
+        spectrum(p, c) = µspectrum_chatzidakis_p(p, c; y=y)
     end
     sample_spectrum_val = spectrum(GeVc, 1)
     s = zeros(eltype(sample_spectrum_val), 1+Np, 1+Nang)

@@ -18,7 +18,7 @@ for particle in particles
     rate = g.flux*area
     N = Int(round(Ttotal*rate))
     println("Generating $N $particle cosmic rays...")
-    pparma[particle], cosθparma[particle] = generate(g, N)
+    @time pparma[particle], cosθparma[particle] = generate(g, N)
 end
 
 p = vcat(pparma[MuscRat.µplus], pparma[MuscRat.µminus])
@@ -42,7 +42,7 @@ push!(allp, p)
 push!(allcosθ, cosθ)
 push!(algorithms, "Reyna")
 
-generator = CRMuonGenerator(100, 100; Pmin=Pmin, useReyna=false);
+generator = CRMuonGenerator(100, 100; Pmin=Pmin, useReyna=false, y=930u"g/cm^2");
 rate = generator.flux*area
 N = Int(round(Ttotal*rate))
 println("Generating $N cosmic rays from Chatzidakis...")
@@ -54,9 +54,11 @@ push!(allp, p)
 push!(allcosθ, cosθ)
 push!(algorithms, "Chatzidakis")
 
-total_paths = [MuscRat.path_values(TKID, cosθ) for cosθ in allcosθ]
+println("Computing path lengths")
+@time total_paths = [MuscRat.path_values(TKID, cosθ) for cosθ in allcosθ]
+println("Computing energy loss given paths")
 eloss_tkid = Eloss_function(:Silicon, :µ)
-LossRate_tkid = [eloss_tkid.(p) for p in allp]
+@time LossRate_tkid = [eloss_tkid.(p) for p in allp]
 
 function plot_distributions(total_paths, LossRate_tkid, ceiling_loss=true)
     clf()
