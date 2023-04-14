@@ -1,4 +1,4 @@
-using Statistics, Unitful, LinearAlgebra, Printf
+using Statistics, Unitful, LinearAlgebra
 
 """
     CRGenerator(....)
@@ -138,7 +138,6 @@ function CRGenerator(filename::AbstractString, mass::T; Pmin=nothing, Pmax=nothi
         KE[i] = parse(Float64, energystr)*1u"MeV"
         flux[i] = parse(Float64, fluxstr)*1u"1/cm^2/s/MeV"
         spectrum[i,:] .= [parse(Float64, x) for x in spectrumstr]
-        @printf("%.3f MeV  %.3f MeV/c  %.3g\n", KE[i]/1u"MeV" |> NoUnits, muon_p(KE[i])/1u"MeV/c" |> NoUnits, ustrip(flux[i]))
     end
     C = Unitful.c
     if mass > 0u"g"
