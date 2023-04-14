@@ -5,11 +5,11 @@ particles = (
     MuscRat.µminus,
 )
 
-TKID = Box([5, 5, 1.5]*u"mm")
+TKID = Box([5, 5, 0.5]*u"mm")
 area = MuscRat.tube_area(TKID)
-Ttotal = 1e7u"s"
+Ttotal = 5e7u"s"
 Pmin = 10.0u"MeV/c"
-loss_in_concrete = 50u"MeV"
+loss_in_concrete = 0.0u"MeV"
 
 pparma = Dict{MuscRat.Particle,Vector}()
 cosθparma = Dict{MuscRat.Particle,Vector}()
@@ -42,7 +42,7 @@ push!(allp, p)
 push!(allcosθ, cosθ)
 push!(algorithms, "Reyna")
 
-generator = CRMuonGenerator(100, 100; Pmin=Pmin, useReyna=false, y=930u"g/cm^2");
+generator = CRMuonGenerator(100, 100; Pmin=Pmin, useReyna=false, y=1000.0u"g/cm^2");
 rate = generator.flux*area
 N = Int(round(Ttotal*rate))
 println("Generating $N cosmic rays from Chatzidakis...")
@@ -60,7 +60,7 @@ println("Computing energy loss given paths")
 eloss_tkid = Eloss_function(:Silicon, :µ)
 @time LossRate_tkid = [eloss_tkid.(p) for p in allp]
 
-function plot_distributions(total_paths, LossRate_tkid, ceiling_loss=true)
+function plot_distributions(total_paths, LossRate_tkid, lossMax=5.0)
     clf()
     ax1 = subplot(311); loglog(); xlabel("µ± momentum (GeV/c)")
     ylabel("Counts / GeV/c / cm\$^2\$ / second")
@@ -72,7 +72,6 @@ function plot_distributions(total_paths, LossRate_tkid, ceiling_loss=true)
     Pmax = 200.0
     Emax = 200.0
     lossbins = 500
-    lossMax = 5.0
     area = 0.5^2
     for i=1:3
         plen = total_paths[i]

@@ -79,9 +79,11 @@ for (i, particle) in enumerate(particles)
 end
 sca(ax1)
 xlim([.01, 500])
+ylim([1e-10, .1])
 legend()
 sca(ax2)
 x = LinRange(-3, 3, 7)
 xt = ["1 MeV", "10 MeV", "100 MeV", "1 GeV", "10 GeV", "100 GeV", "1 TeV"]
 xticks(x, xt)
 xlim([-3, 3])
+ylim([1e-10, .1])
