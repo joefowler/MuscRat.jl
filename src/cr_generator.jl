@@ -107,25 +107,31 @@ function CRMuonGenerator(Np::Integer, Nang::Integer;
     CRGenerator(Np, Nang, float(Pmin), float(Pmax), logPGeVlim, mµ, cosθlim, s)
 end
 
+@enum Particle begin
+    Gamma
+    µplus
+    µminus
+    Electron
+    Positron
+end
+
+masses = Dict(
+    Gamma => 0.0u"GeV/c^2",
+    µplus => mµ,
+    µminus => mµ,
+    Electron => me,
+    Positron => me,
+)
 
 
-function CRGenerator(filename::AbstractString, mass::T; Pmin=nothing, Pmax=nothing) where T<:Unitful.Mass
+
+function readParma(filename::AbstractString, mass::T) where T<:Unitful.Mass
     lines = readlines(filename)
     header = split(lines[1], ",")
     Nang = parse(Int, header[1])
     Np = parse(Int, header[2])
-    PminData = parse(Float64, header[3])*1u"MeV/c"
-    PmaxData = parse(Float64, header[4])*1u"MeV/c"
-    if Pmin === nothing
-        Pmin = PminData
-    elseif Pmin < PminData
-        throw(ErrorException("Pmin=$(Pmin) is less than the file's limit of $(PminData)"))
-    end
-    if Pmax === nothing
-        Pmax = PmaxData
-    elseif Pmax > PmaxData
-        throw(ErrorException("Pmax=$(Pmax) is greater than the file's limit of $(PmaxData)"))
-    end
+    Pmin = parse(Float64, header[3])*1u"MeV/c"
+    Pmax = parse(Float64, header[4])*1u"MeV/c"
 
     @assert Np == length(lines)-2
     @assert Nang == length(split(lines[2], ","))-3
@@ -150,31 +156,15 @@ function CRGenerator(filename::AbstractString, mass::T; Pmin=nothing, Pmax=nothi
     # with min and max momentum matching what the table header says to expect.
     dlogp = diff(log.(p./1u"MeV/c"))
     @assert maximum(dlogp)-minimum(dlogp) < mean(dlogp)*1e-3
-    @assert abs(log(p[1]/PminData)) < 1e-4
-    @assert abs(log(p[end]/PmaxData)) < 1e-4
+    @assert abs(log(p[1]/Pmin)) < 1e-4
+    @assert abs(log(p[end]/Pmax)) < 1e-4
 
     logPGeVlim = LinRange(log(Pmin/1u"GeV/c"), log(Pmax/1u"GeV/c"), length(p))
     spectrum_units = u"1/cm^2/s/MeV/sr"
-    CRGenerator(Np, Nang, Pmin, Pmax, logPGeVlim, mass, cosθlim, spectrum*spectrum_units)
+    Np, Nang, Pmin, Pmax, logPGeVlim, mass, cosθlim, spectrum*spectrum_units, KE, flux
 end
 
-@enum Particle begin
-    Gamma
-    µplus
-    µminus
-    Electron
-    Positron
-end
-
-masses = Dict(
-    Gamma => 0.0u"GeV/c^2",
-    µplus => mµ,
-    µminus => mµ,
-    Electron => me,
-    Positron => me,
-)
-
-function ParmaGenerator(p::Particle; Pmin=nothing, Pmax=nothing)
+function readParma(p::Particle) where T<:Unitful.Mass
     localpaths = Dict(
         Gamma => "data/parma_gamma.txt",
         µplus => "data/parma_mu+.txt",
@@ -183,7 +173,38 @@ function ParmaGenerator(p::Particle; Pmin=nothing, Pmax=nothing)
         Positron => "data/parma_positron.txt",
     )
     project_path(parts...) = normpath(joinpath(@__DIR__, "..", parts...))
-    return CRGenerator(project_path(localpaths[p]), masses[p]; Pmin=Pmin, Pmax=Pmax)
+    readParma(project_path(localpaths[p]), masses[p])
+end
+
+function ParmaGenerator(p::Particle; Pmin=nothing, Pmax=nothing)
+    Np, Nang, PminData, PmaxData, logPGeVlim, mass, cosθlim, spectrum, _, _ = readParma(p)
+    if Pmin === nothing
+        Pmin = PminData
+    elseif Pmin < PminData
+        throw(ErrorException("Pmin=$(Pmin) is less than the file's limit of $(PminData)"))
+    elseif Pmin > PminData
+        p = exp.(logPGeVlim)*u"GeV/c"
+        keep = p .≥ Pmin
+        Np = sum(keep)-1
+        v = logPGeVlim[keep]
+        logPGeVlim = LinRange(v[1], v[end], length(v))
+        spectrum = spectrum[keep,:]
+    end
+    if Pmax === nothing
+        Pmax = PmaxData
+    elseif Pmax > PmaxData
+        throw(ErrorException("Pmax=$(Pmax) is greater than the file's limit of $(PmaxData)"))
+    elseif Pmax ≤ Pmin
+        throw(ErrorException("Pmax=$(Pmax) is ≤ Pmin $(Pmin)"))
+    elseif Pmax < PmaxData
+        p = exp.(logPGeVlim)*u"GeV/c"
+        keep = p .≤ Pmax
+        Np = sum(keep)-1
+        v = logPGeVlim[keep]
+        logPGeVlim = LinRange(v[1], v[end], length(v))
+        spectrum = spectrum[keep,:]
+    end
+    CRGenerator(Np, Nang, Pmin, Pmax, logPGeVlim, mass, cosθlim, spectrum)
 end
 
 

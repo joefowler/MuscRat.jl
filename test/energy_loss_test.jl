@@ -1,5 +1,3 @@
-using MuscRat
-
 import Unitful.MeV
 MeV_over_c = 1u"MeV/c"
 MeV_per_cm = 1u"MeV/cm"

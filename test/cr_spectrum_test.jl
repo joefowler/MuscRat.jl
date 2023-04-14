@@ -1,5 +1,3 @@
-using MuscRat, Unitful
-
 @testset "spectrum" begin
     E = 1.0u"GeV"
     p = 1.0u"GeV/c"
