@@ -1,4 +1,4 @@
-using Statistics, Unitful, LinearAlgebra
+using Statistics, Unitful, LinearAlgebra, Printf
 
 """
     CRGenerator(....)
@@ -128,14 +128,17 @@ function CRGenerator(filename::AbstractString, mass::T; Pmin=nothing, Pmax=nothi
     end
 
     @assert Np == length(lines)-2
-    @assert Nang == length(split(lines[2], ","))-2
+    @assert Nang == length(split(lines[2], ","))-3
     spectrum = zeros(Float64, 1+Np, 1+Nang)
     cosθlim = LinRange(0, 1, 1+Nang)
     KE = Array{typeof(1.0u"GeV")}(undef, Np+1)
+    flux = Array{typeof(1.0u"1/cm^2/s/MeV")}(undef, Np+1)
     for i = 1:Np+1
-        energystr, spectrumstr... = split(lines[i+1], ",")
+        energystr, fluxstr, spectrumstr... = split(lines[i+1], ",")
         KE[i] = parse(Float64, energystr)*1u"MeV"
+        flux[i] = parse(Float64, fluxstr)*1u"1/cm^2/s/MeV"
         spectrum[i,:] .= [parse(Float64, x) for x in spectrumstr]
+        @printf("%.3f MeV  %.3f MeV/c  %.3g\n", KE[i]/1u"MeV" |> NoUnits, muon_p(KE[i])/1u"MeV/c" |> NoUnits, ustrip(flux[i]))
     end
     C = Unitful.c
     if mass > 0u"g"
