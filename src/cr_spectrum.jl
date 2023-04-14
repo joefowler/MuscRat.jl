@@ -1,35 +1,38 @@
 using Unitful
 
 # See README for full citations of Su, Charzidakis, and Reyna
-function µspectrum_chatzidakis(Eµ, cosθ)
+function µspectrum_chatzidakis(Eµ, cosθ; y=1000u"g/cm^2")
     ###############################################
     #
     #    Phenomenological model constants
     #
-    A=0.002382u"1/GeV/g/s/sr";                # constant A
-    λ=120u"g/cm^2";            # absorption mean free path 120 g/cm2
-    kappa=2.645;               # exponent (-)
-    b=0.771;                   # correction factor (-)
-    jπ=148.16u"GeV";           # π j-factor(GeV)
-    α = 2.5u"MeV/(g/cm^2)";    # muon energy loss in MeV/g/cm2
-    ρ = 0.76;                  # fraction of pion energy that is transferred to muon
-    y0=1000u"g/cm^2";          # atmoshperic depth g/cm2
-    Bµ=1.041231831u"GeV";      # correction factor (-);
+    # y = atmospheric depth g/cm2
+    A = 0.002382u"1/GeV/g/s/sr"; # constant A, a fitting parameter of model
+    λ = 120u"g/cm^2";            # absorption mean free path 120 g/cm2
+    kappa = 2.645;               # exponent, a fitting parameter of model
+    b = 0.771;                   # correction factor (improves on an isothermal atmosphere assumption)
+    jπ = 148.16u"GeV";           # π j-factor(GeV)
+    α = 2.5u"MeV/(g/cm^2)";      # µ energy loss in MeV/g/cm2
+    ρ = 0.76;                    # fraction of π energy that is transferred to µ
+    Bµ = 1.041231831u"GeV";      # correction factor (-);
+    y0 = 1000u"g/cm^2"           # atmospheric depth at sea level
+    Bµ *= y/y0
     ###############################################
     Eµ < Ezero && error("Negative µ kinetic energy")
     cosθ ≤ 0 && return 0.0A*λ
     secθ = 1/cosθ
 
     # Su eq (7): energy of the π that produced the µ
-    ρEπ = (Eµ+α*y0*(secθ-0.1))
+    ρEπ = (Eµ+α*y*(secθ-0.1))
+    Eπ = ρEπ/ρ
 
     # Su eq (8): probability for µ to reach sea level
     scale100 = 100u"g/cm^2"
     power8 = convert(Float64, Bµ/((ρEπ+scale100*α)*cosθ))
-    Pµ1 = (0.1*cosθ*(1 - α*(y0*secθ-scale100)/ρEπ))^power8
+    Pµ1 = (0.1*cosθ*(y/y0)*(1 - α*(y*secθ-scale100)/ρEπ))^power8
 
     # Su eq (6): cosmic ray µ spectrum
-    A*Pµ1*(convert(Float64, ρEπ/ρ/1u"GeV")^(-kappa))*λ*b*convert(Float64, jπ/(ρEπ/ρ*cosθ+b*jπ))
+    A*Pµ1*((Eπ/1u"GeV" |> NoUnits)^(-kappa))*λ*(b*jπ/(Eπ*cosθ+b*jπ) |> NoUnits)
 end
 
 function µspectrum_reyna_p(pµ, cosθ)
@@ -49,15 +52,16 @@ end
 muon_E(p) = p < Pzero ? error("Negative µ momentum") : sqrt((p*Unitful.c)^2+(mµ*Unitful.c^2)^2)-mµ*Unitful.c^2
 muon_p(E) = E < Ezero ? error("Negative µ kinetic energy") : sqrt((E+mµ*Unitful.c^2)^2-mµ^2*Unitful.c^4)/Unitful.c
 
-µspectrum_chatzidakis_p(p, cosθ) = µspectrum_chatzidakis(muon_E(p), cosθ)
+µspectrum_chatzidakis_p(p, cosθ; y=1000u"g/cm^2") = µspectrum_chatzidakis(muon_E(p), cosθ; y=y)
 µspectrum_reyna(E, cosθ) = µspectrum_reyna_p(muon_p(E), cosθ)
 
 """
-    µspectrum(E, cosθ)
+    µspectrum(E, cosθ; y0=1000u"g/cm^2")
 
 Return the differential cosmic ray muon energy spectrum in [counts GeV^-1 s^-1 sr^-1 cm^-2].
 - `E`    is the µ kinetic energy in GeV
 - `cosθ` is the cosine of the zenith angle
+- `y0`   is the atmospheric overburden (sea level is approximately 1000 g/cm^2)
 Uses the Chatzidakis 2015 spectrum (doi:10.1016/j.nima.2015.09.033)
 See `µspectrum_reyna` to use the Reyna 2006 spectrum (arXiv:hep-ph/0604145)
 See `µspectrum_p` or `µspectrum_reyna_p` to accept momentum instead of kinetic energy as the 1st parameter
