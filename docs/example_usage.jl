@@ -33,8 +33,8 @@ println("Generated $N muons")
 
 total_paths = Dict([(k,MuscRat.path_values(obj, cosθ)) for (k,obj) in solids])
 
-eloss_tkid = Eloss_function(:Silicon, :µ)
-eloss_scint = Eloss_function(:NaI, :µ)
+eloss_tkid,_ = Eloss_functions(:Silicon, :µ)
+eloss_scint,_ = Eloss_functions(:NaI, :µ)
 
 LossRate_tkid = eloss_tkid.(p)
 LossRate_scint = eloss_scint.(p)
