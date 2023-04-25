@@ -50,7 +50,7 @@ function CRGenerator(
     pij = Array{Float64}(undef, Np*Nang, 4)
     for j=1:Nang, i=1:Np
         k=Np*(j-1)+i
-        rp = spectrum_integral[i,j]
+        rp = mean(integrand[i:i+1, j:j+1])
         if ustrip(rp) > 0
             pij[k,1] = integrand[i,j]/rp
             pij[k,2] = integrand[i+1,j]/rp
