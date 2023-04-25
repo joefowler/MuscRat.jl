@@ -79,6 +79,7 @@ function plot_distributions(total_paths, Loss_tkid, lossMax=5.0)
         pGeV = allp[i]/1u"GeV/c"
         EGeV = MuscRat.muon_E.(allp[i])/1u"GeV"
         lossMeV = Loss_tkid[i][plen.>0u"cm"]/Unitful.MeV .|> NoUnits
+        lossMeV .*= exp.(randn(length(lossMeV))*0.15)
 
         sca(ax1)
         binwidth = Pmax/Nbins
