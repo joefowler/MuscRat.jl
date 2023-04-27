@@ -13,14 +13,20 @@ println("Generated $N muons")
 
 total_paths = Dict([(k,MuscRat.path_values(obj, cosθ)) for (k,obj) in solids])
 
-eloss_tkid = Δprob(:Silicon, :µ)
+lossrate_tkid, probloss_tkid = Eloss_functions(:Silicon, :µ)
 
 loss = Dict{Symbol, Vector}()
+meanloss = Dict{Symbol, Vector}()
 for k in keys(solids)
     plen = total_paths[k]
     use = plen .> 0cm
-    thisloss = eloss_tkid.(p[use], plen[use])
-    loss[k] = uconvert.(MeV, thisloss)
+    thisloss1 = probloss_tkid.(p[use], plen[use])
+    loss[k] = uconvert.(MeV, thisloss1)
+
+    thisloss2 = lossrate_tkid.(p[use]).*(total_paths[k])[use]
+    @show thisloss1[1:5]
+    @show thisloss2[1:5]
+    meanloss[k] = uconvert.(MeV, thisloss2)
 end
 
 names = Dict(
@@ -49,7 +55,7 @@ function plot_results(solids, loss, smear=0.0)
     for k in detectors
         flux_in_tube = generator.flux*MuscRat.tube_area(solids[k]) # Units are µ per second
         total_time = N/flux_in_tube
-        N_lbins = 500
+        N_lbins = 1000
         Δbin = Lmax/N_lbins
 
         sca(ax1)
@@ -70,6 +76,15 @@ function plot_results(solids, loss, smear=0.0)
                         color=objcolors[k], label=names[k], lw=lw)
         hitrate = Ndetector_hits/total_time
         @show k, hitrate
+
+        Lm = meanloss[k]
+        if smear > 0
+            Lm = Lm .* exp.(smear*randn(Ndetector_hits))
+        end
+        c, _, _ = hist(Lm/MeV, N_lbins, [0,Lmax/MeV], histtype="step", weights=zeros(length(L)).+weight/wtunits,
+                        color=objcolors[k], lw=lw/2, alpha=0.5)
+
+        xlim([0, Lmax/Unitful.MeV])
     end
     legend()
     tight_layout()
