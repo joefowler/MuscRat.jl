@@ -3,6 +3,7 @@ import Unitful.cm, Unitful.mm, Unitful.MeV
 
 solids = Dict(
     :thick_tkid => Box(5mm, 5mm, 1.5mm),
+    :vertical_tkid => Box(1.5mm, 5mm, 5mm),
     :thin_tkid => Box(5mm, 5mm, 0.5mm),
 )
 
@@ -35,24 +36,26 @@ end
 names = Dict(
     :thick_tkid => "1.5 mm TKID",
     :thin_tkid => "0.5 mm TKID",
+    :vertical_tkid => "Vertical TKID"
 )
 
 objcolors = Dict(
     :thick_tkid => "red",
     :thin_tkid => "orange",
+    :vertical_tkid => "purple"
 )
 
-function plot_results(solids, loss, mploss, meanloss, smear=0.0)
+function plot_results(solids, loss, mploss, meanloss; smear=0.0, show3=true)
     clf()
     ax1 = subplot(211)
     title("Geometric paths for CR µ± through TKID of 2 thicknesses")
-    xlabel("Path through silicon TKID (cm)")
+    xlabel("Path through silicon TKID (mm)")
     ax2 = subplot(212)
     title("Bethe-Bloch CR µ± loss in TKID of 2 thicknesses")
     xlabel("Energy lost in silicon TKID (MeV)")
     ylabel("Counts per MeV per second")
 
-    detectors = (:thick_tkid, :thin_tkid)
+    detectors = (:thick_tkid, :thin_tkid, :vertical_tkid)
     Pmax, Lmax = 7.5mm, 5MeV
 
     for k in detectors
@@ -63,35 +66,37 @@ function plot_results(solids, loss, mploss, meanloss, smear=0.0)
 
         sca(ax1)
         lw = 1
-        tp_cm = convert.(Float64, total_paths[k]/1cm)
-        @show tp_cm[1:10]
-        c, _, _ = hist(tp_cm[tp_cm.>0], 500, [0,convert(Float64,Pmax/1cm)], histtype="step", color=objcolors[k], label=names[k], lw=lw)
+        tp_mm = convert.(Float64, total_paths[k]/1mm)
+        @show tp_mm[1:10]
+        c, _, _ = hist(tp_mm[tp_mm.>0], 500, [0,convert(Float64,Pmax/1mm)], histtype="step", color=objcolors[k], label=names[k], lw=lw)
 
         sca(ax2)
         weight = 1/(total_time*Δbin)
-        Ndetector_hits = length(loss[k])
-
+        
         L = loss[k]/MeV .|> NoUnits
         wtunits = 1u"1/s/MeV"
+        Ndetector_hits = length(L[L.>0.01])
         c, _, _ = hist(L, N_lbins, [0,Lmax/MeV], histtype="step", weights=zeros(length(L)).+weight/wtunits,
                         color=objcolors[k], label=names[k], lw=2)
-        hitrate = Ndetector_hits/total_time
-        @show k, hitrate
+        hitrate = uconvert(u"s^-1", Ndetector_hits/total_time)
+        meanloss = mean(L[L.>0])
+        @show k, hitrate, meanloss
 
-        Lm = mploss[k]/MeV .|> NoUnits
-        if smear > 0
-            Lm = Lm .* exp.(smear*randn(Ndetector_hits))
+        if show3
+            Lm = mploss[k]/MeV .|> NoUnits
+            if smear > 0
+                Lm = Lm .* exp.(smear*randn(length(Lm)))
+            end
+            c, _, _ = hist(Lm, N_lbins, [0,Lmax/MeV], histtype="step", weights=zeros(length(L)).+weight/wtunits,
+                            color=objcolors[k], lw=lw/2, alpha=0.85, label="Most prob, smeared")
+
+            Lm = meanloss[k]/MeV .|> NoUnits
+            if smear > 0
+                Lm = Lm .* exp.(smear*randn(length(Lm)))
+            end
+            c, _, _ = hist(Lm, N_lbins, [0,Lmax/MeV], histtype="step", weights=zeros(length(L)).+weight/wtunits,
+                            color=objcolors[k], lw=lw/2, alpha=0.5, label="Bethe-Bloch, smeared")
         end
-        c, _, _ = hist(Lm, N_lbins, [0,Lmax/MeV], histtype="step", weights=zeros(length(L)).+weight/wtunits,
-                        color=objcolors[k], lw=lw/2, alpha=0.85, label="Most prob, smeared")
-
-        Lm = meanloss[k]/MeV .|> NoUnits
-        if smear > 0
-            Lm = Lm .* exp.(smear*randn(Ndetector_hits))
-        end
-        c, _, _ = hist(Lm, N_lbins, [0,Lmax/MeV], histtype="step", weights=zeros(length(L)).+weight/wtunits,
-                        color=objcolors[k], lw=lw/2, alpha=0.5, label="Bethe-Bloch, smeared")
-
         xlim([0, Lmax/Unitful.MeV])
     end
     semilogy()
@@ -100,7 +105,7 @@ function plot_results(solids, loss, mploss, meanloss, smear=0.0)
     nothing
 end
 
-plot_results(solids, loss, mploss, meanloss, 0.15)
+plot_results(solids, loss, mploss, meanloss; smear=0.15)
 
 # using HDF5
 # function store_results(solids, loss)
