@@ -177,6 +177,8 @@ function readParma(p::Particle; sealevel=true)
         µminus => "data/parma_mu-_sealevel.txt",
         Electron => "data/parma_electron.txt",
         Positron => "data/parma_positron.txt",
+        Neutron => "data/parma_neutron.txt",
+        Proton => "data/parma_proton.txt",
     )
     if !sealevel
         localpaths[µplus] = "data/parma_mu+_boulderlevel.txt"
