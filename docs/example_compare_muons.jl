@@ -1,6 +1,6 @@
 using PyPlot, Unitful, MuscRat, Statistics
 
-Ttotal = 1e8u"s"
+Ttotal = 1e9u"s"
 
 function run_simulation()
     TKID = Box([5, 5, 1.5]*u"mm")
@@ -107,20 +107,43 @@ end
 
 plot_distributions(allp, total_paths, Loss_tkid)
 
-# function save_distributions(allp, allcosθ, total_paths, Loss_tkid, algorithms)
-#     h5open("muon_CR_loss_4models.hdf5", "w") do h
-#         for (i, k) in enumerate(algorithms)
-#             name = split(k, " g ")[1]
-#             name = replace(name, " "=>"_")
-#             g = create_group(h, name)
+function save_distributions(allp, allcosθ, total_paths, Loss_tkid, algorithms)
+    h5open("muon_CR_loss_4models.hdf5", "w") do h
+        for (i, k) in enumerate(algorithms)
+            name = split(k, " g ")[1]
+            name = replace(name, " "=>"_")
+            g = create_group(h, name)
 
-#             use = total_paths[i] .> 0u"mm"
-#             write(g, "p_GeV", allp[i][use]/1u"GeV/c")
-#             write(g, "costheta", allcosθ[i][use])
-#             write(g, "path_mm", total_paths[i][use]/1u"mm")
-#             write(g, "loss_keV", Loss_tkid[i][use]/1u"keV")
-#         end
-#     end
-# end
+            use = total_paths[i] .> 0u"mm"
+            write(g, "p_GeV", allp[i][use]/1u"GeV/c")
+            write(g, "costheta", allcosθ[i][use])
+            write(g, "path_mm", total_paths[i][use]/1u"mm")
+            write(g, "loss_keV", Loss_tkid[i][use]/1u"keV")
+        end
+    end
+end
+function save_histograms(total_paths, Loss_tkid, algorithms)
+    figure(2)
+    clf()
+    lossmax = 6000.0
+    lossbins = 600
+    binwidth = lossmax/lossbins/1000.0
+    h5open("muon_CR_loss_histogram_4models.hdf5", "w") do h
+        for (i, k) in enumerate(algorithms)
+            name = split(k, " g ")[1]
+            name = replace(name, " "=>"_")
 
-# Ttotal <= 1.1e8u"s" && save_distributions(allp, allcosθ, total_paths, Loss_tkid, algorithms)
+            use = total_paths[i] .> 0u"mm"
+            w = (Ttotal/1u"s")*binwidth
+            c, b, _ = hist(Loss_tkid[i][use]/1u"keV", lossbins, [0,lossmax], histtype="step")
+            write(h, name, c/w)
+            ds = h[name]
+            attr = Dict("binwidth"=>10.0, "Emax"=>lossmax, "Eunits"=>"keV", "histunits"=>"counts/sec/MeV")
+            for (k,v) in attr
+                attributes(ds)[k]=v
+            end
+        end
+    end
+end
+save_histograms(total_paths, Loss_tkid, algorithms)
+Ttotal <= 3e7u"s" && save_distributions(allp, allcosθ, total_paths, Loss_tkid, algorithms)

@@ -113,6 +113,10 @@ end
     µminus
     Electron
     Positron
+    Neutron
+    Proton
+    πplus
+    πminus
 end
 
 masses = Dict(
@@ -121,6 +125,10 @@ masses = Dict(
     µminus => mµ,
     Electron => me,
     Positron => me,
+    Neutron => mn,
+    Proton => mp,
+    πplus => mπ,
+    πminus => mπ,
 )
 
 function readParma(filename::AbstractString, mass::T) where T<:Unitful.Mass
