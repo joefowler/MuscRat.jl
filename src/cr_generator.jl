@@ -132,6 +132,7 @@ masses = Dict(
 )
 
 function readParma(filename::AbstractString, mass::T) where T<:Unitful.Mass
+    @show filename
     lines = readlines(filename)
     header = split(lines[1], ",")
     Nang = parse(Int, header[1])
@@ -170,25 +171,25 @@ function readParma(filename::AbstractString, mass::T) where T<:Unitful.Mass
     Np, Nang, Pmin, Pmax, logPGeVlim, mass, cosθlim, spectrum*spectrum_units, KE, flux
 end
 
-function readParma(p::Particle; sealevel=true)
+function readParma(p::Particle; sealevel=false)
     localpaths = Dict(
         Gamma => "data/parma_gamma.txt",
-        µplus => "data/parma_mu+_sealevel.txt",
-        µminus => "data/parma_mu-_sealevel.txt",
+        µplus => "data/parma_mu+_boulderlevel.txt",
+        µminus => "data/parma_mu-_boulderlevel.txt",
         Electron => "data/parma_electron.txt",
         Positron => "data/parma_positron.txt",
         Neutron => "data/parma_neutron.txt",
         Proton => "data/parma_proton.txt",
     )
-    if !sealevel
-        localpaths[µplus] = "data/parma_mu+_boulderlevel.txt"
-        localpaths[µminus] = "data/parma_mu-_boulderlevel.txt"
+    if sealevel
+        localpaths[µplus] = "data/parma_mu+_sealevel.txt"
+        localpaths[µminus] = "data/parma_mu-_sealevel.txt"
     end
     project_path(parts...) = normpath(joinpath(@__DIR__, "..", parts...))
     readParma(project_path(localpaths[p]), masses[p])
 end
 
-function ParmaGenerator(p::Particle; Pmin=nothing, Pmax=nothing, sealevel=true)
+function ParmaGenerator(p::Particle; Pmin=nothing, Pmax=nothing, sealevel=false)
     Np, Nang, PminData, PmaxData, logPGeVlim, mass, cosθlim, spectrum, _, _ = readParma(p; sealevel=sealevel)
     if Pmin === nothing
         Pmin = PminData
