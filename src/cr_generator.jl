@@ -132,7 +132,6 @@ masses = Dict(
 )
 
 function readParma(filename::AbstractString, mass::T) where T<:Unitful.Mass
-    @show filename
     lines = readlines(filename)
     header = split(lines[1], ",")
     Nang = parse(Int, header[1])
