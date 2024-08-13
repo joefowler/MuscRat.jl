@@ -1915,7 +1915,7 @@ double getdcpp(double alti, double cido) // getd in g/cm^2, alti in km
 // ******************************************************
 {
      double getd;
-     int iMSIS = 0;           // 0:US standard atmosphere, 1:NRLMSISE database
+     int iMSIS = 1;           // 0:US standard atmosphere, 1:NRLMSISE database
      const int maxUS = 75;    // number of altitude bin for US-Standard Air
      const int maxMSIS = 129; // number of altitude bin for NRLMSISE-00
      const int maxlat = 36;   // number of latitude bin for NRLMSISE-00
@@ -1975,13 +1975,13 @@ double getdcpp(double alti, double cido) // getd in g/cm^2, alti in km
           }
           if (ia == 1)
           { // out of range
-               cout << "Error in function getd" << "\n";
+               cout << "Error in function getd for US Std" << "\n";
                cout << "Altitude = " << alti << " (km) should be higher than " << altUS[1] << " (km)" << "\n";
                exit(1);
           }
           if (ia == maxUS + 1)
           { // ! out of range
-               cout << "Warning in function getd" << "\n";
+               cout << "Warning in function getd for US Std" << "\n";
                cout << "Altitude = " << alti << " (km) is too high. It is assumed to be " << altUS[maxUS] << " (km)" << "\n";
                getd = depUS[maxUS];
                return getd;
@@ -2000,13 +2000,13 @@ double getdcpp(double alti, double cido) // getd in g/cm^2, alti in km
           }
           if (ia == 1)
           { // out of range
-               cout << "Error in function getd" << "\n";
+               cout << "Error in function getd for NRLMSISE-00" << "\n";
                cout << "Altitude = " << alti << " (km) should be higher than " << altMSIS[1] << " (km)" << "\n";
                exit(1);
           }
           if (ia == maxMSIS + 1)
           { // ! out of range
-               cout << "Warning in function getd" << "\n";
+               cout << "Warning in function getd for NRLMSISE-00" << "\n";
                cout << "Altitude = " << alti << " (km) is too high. It is assumed to be " << altMSIS[maxMSIS] << " (km)" << "\n";
                alti = altMSIS[maxMSIS];
                ia = maxMSIS;
