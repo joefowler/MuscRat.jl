@@ -1,4 +1,3 @@
-
 @enum ParmaParticle begin
     ppNeutron = 0
     ppProton = 1
@@ -32,7 +31,7 @@ function Parma_getr(latitude::Real, longitude::Real=100)
 end
 
 """
-    Parma_getd(altitude::Real, latitude::Real=100)
+    Parma_depth(altitude::Real, latitude::Real=100)
 
 Return the atmospheric depth at `alititude` (in km above sea level) and at 
 `latitude` (in degrees), in g/cm^2. 
@@ -40,7 +39,7 @@ Return the atmospheric depth at `alititude` (in km above sea level) and at
 If |`latitude`| ≤ 90, use NRLMSISE-00 data.
 Otherwise, use the U.S. Standard Atmosphere.
 """
-function Parma_getd(altitude::Real, latitude::Real=100)
+function Parma_depth(altitude::Real, latitude::Real=100)
     depth = @ccall library._Z7getdcppdd(altitude::Cdouble, latitude::Cdouble)::Cdouble
 end
 
@@ -48,11 +47,13 @@ end
     Parma_getSpec(particleID::ParmaParticle, Windex::Real, cutoffRigidity::Real, 
     atmosphericDepth::Real, energy::Real, geometryParam::Real)
 
-Get the cosmic ray spectrum for particle `particleID` at `energy` (in MeV per nucleon), also given the
+Get the angle-integrated cosmic ray spectrum for particle `particleID` at `energy` (in MeV per nucleon), also given the
 W-index `Windex`, the cutoff rigidity `cutoffRigidity` (in GV), the atmospheric depth `atmosphericDepth` (g/cm^2)
-and the local geometry parameter.
+and the local geometry parameter `geometryParam`. 
 
-`geometryParam` should be in [0, 1] if a water weight-fraction, or 10 for no earth, or 100 for the "black hole" model,
+The angle-integrated spectrum's units are events per (cm^2⋅s⋅MeV/n).
+
+`geometryParam` should be in [0, 1] if a water weight-fraction of nearby earth, or 10 for no earth, or 100 for the "black hole" model,
 or in [-10, 0] for pilot, and g<-10 for cabin. I don't know what that all means. Use 0.15.
 """
 function Parma_getSpec(particleID::ParmaParticle, Windex::Real, cutoffRigidity::Real, 
@@ -65,9 +66,11 @@ end
     Parma_getSpecAngFinal(particleID::ParmaParticle, Windex::Real, cutoffRigidity::Real, 
     atmosphericDepth::Real, energy::Real, geometryParam::Real, cosθ::Real)
 
-Get the angular cosmic ray spectrum for particle `particleID` at `energy` (in MeV per nucleon) and zenith
+Get the angular differential cosmic ray spectrum for particle `particleID` at `energy` (in MeV per nucleon) and zenith
 angle `cosθ`, also given the W-index `Windex`, the cutoff rigidity `cutoffRigidity` (in GV), the atmospheric
 depth `atmosphericDepth` (g/cm^2) and the local geometry parameter.
+
+The angular differential spectrum units are events per (cm^2⋅s⋅MeV/n⋅sr).
 
 `geometryParam` should be in [0, 1] if a water weight-fraction, or 10 for no earth, or 100 for the "black hole" model,
 or in [-10, 0] for pilot, and g<-10 for cabin. I don't know what that all means. Use 0.15.
@@ -91,3 +94,38 @@ function Parma_get511flux(Windex::Real, cutoffRigidity::Real, atmosphericDepth::
         atmosphericDepth::Cdouble)::Cdouble
 end
 
+
+struct CRObserver
+    year::Int
+    month::Int
+    day::Int
+    latitude::Float64
+    longitude::Float64
+    altitude::Float64
+    g::Float64
+    Windex::Float64
+    cutoffRigidity::Float64
+    depth::Float64
+    function CRObserver(year,month,day,lat,long,alt,g=0.15)
+        Windex = Parma_getHP(year, month, day)
+        r = Parma_getr(lat, long)
+        depth = Parma_depth(alt)
+        new(year,month,day,lat,long,alt,g,Windex,r,depth)
+    end
+end
+
+function CRspectrum(energy::Real, obs::CRObserver, id::ParmaParticle)
+    Parma_getSpec(id, obs.Windex, obs.cutoffRigidity, obs.depth, energy, obs.g)
+end
+
+function CRspectrum(energy::Real, depth::Real, obs::CRObserver, id::ParmaParticle)
+    Parma_getSpec(id, obs.Windex, obs.cutoffRigidity, depth, energy, obs.g)
+end
+
+function CRangularSpectrum(energy::Real, cosθ::Real, depth::Real, obs::CRObserver, id::ParmaParticle)
+    Parma_getSpecAngFinal(id, obs.Windex, obs.cutoffRigidity, depth, energy, obs.g, cosθ)
+end
+
+function CRangularSpectrum(energy::Real, cosθ::Real, obs::CRObserver, id::ParmaParticle)
+    Parma_getSpecAngFinal(id, obs.Windex, obs.cutoffRigidity, obs.depth, energy, obs.g, cosθ)
+end
