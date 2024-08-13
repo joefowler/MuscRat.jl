@@ -11,5 +11,6 @@ include("units.jl")
 include("cr_spectrum.jl")
 include("cr_generator.jl")
 include("energy_loss.jl")
+include("parma.jl")
 
 end # module MuscRat
