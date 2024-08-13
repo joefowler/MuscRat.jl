@@ -2,24 +2,24 @@ using LinearAlgebra
 using Unitful
 
 """
-    Line(n[, pt])
+    Ray(n[, pt])
 
 Store a line in N-dimensional space. The line passes through point `pt` with a normal direction `n`.
 If `pt` is omitted, it is taken to be the origin. If given, it must have the same length as `n`.
 """
-struct Line
+struct Ray
     n::Vector{Float64}
     pt::Vector
 
-    function Line(n::AbstractVector{T}, pt::AbstractVector) where {T <: Real}
+    function Ray(n::AbstractVector{T}, pt::AbstractVector) where {T <: Real}
         if length(n) != length(pt)
             throw(DimensionMismatch("Direction vector and point must have equal length"))
         end
         new(n/norm(n), pt)
     end
 end
-Line(n::AbstractVector{T}) where {T<:Real} = Line(n, zero(n)*1u"cm")
-point(line::Line, t::Unitful.Length) = line.n*t+line.pt
+Ray(n::AbstractVector{T}) where {T<:Real} = Ray(n, zero(n)*1u"cm")
+point(ray::Ray, t::Unitful.Length) = ray.n*t+ray.pt
 
 abstract type Solid end
 
@@ -94,14 +94,14 @@ always enclose the object, regardless of the tube orientation.
 """
 tube_area(obj::Solid) = π*smallest_radius(obj)^2
 
-function path(box::Box, line::Line)
+function path(box::Box, ray::Ray)
     ZeroLength = zero(box.sides[1])
     crossings = []
     for i=1:3
-        line.n[i]==0 && continue
+        ray.n[i]==0 && continue
         for s in [-0.5, +0.5]*box.sides[i]
-            t = (s-line.pt[i])/line.n[i]
-            x = point(line, t)
+            t = (s-ray.pt[i])/ray.n[i]
+            x = point(ray, t)
             inrange = true
             for j=1:3
                 j==i && continue
@@ -123,24 +123,24 @@ function path(box::Box, line::Line)
 end
 
 """
-    path(obj::Solid, line::Line)
+    path(obj::Solid, ray::Ray)
 
-Return the path length of `line` through the object `obj`, or 0 if the line doesn't
+Return the path length of `ray` through the object `obj`, or 0 if the line doesn't
 intersect the object.
 """
-function path(cyl::Cylinder, line::Line)
-    # Step 1: At which 0, 1, or 2 points does line intersect the infinitely long version of cyl?
+function path(cyl::Cylinder, ray::Ray)
+    # Step 1: At which 0, 1, or 2 points does `ray` intersect the infinitely long version of cyl?
     # This means solving a quadratic equation (in general, though not quadratic if a=0).
-    # r2 is the square distance of the line.pt from the cylinder axis
+    # r2 is the square distance of the ray.pt from the cylinder axis
     ZeroLength = zero(cyl.height)
     a = 0.0
     b = ZeroLength
     r2 = ZeroLength^2
      for i=1:3
         if i != cyl.axis
-            a += line.n[i]^2
-            b += 2*line.pt[i]*line.n[i]
-            r2 += line.pt[i]^2
+            a += ray.n[i]^2
+            b += 2*ray.pt[i]*ray.n[i]
+            r2 += ray.pt[i]^2
         end
     end
     c = r2-cyl.rad2
@@ -159,8 +159,8 @@ function path(cyl::Cylinder, line::Line)
     difft = sqrt(disc)/2a
     t1 = avgt-difft
     t2 = avgt+difft
-    x1 = point(line, t1)
-    x2 = point(line, t2)
+    x1 = point(ray, t1)
+    x2 = point(ray, t2)
     # Make sure that x1 is the lesser of the two along the cylinder axis. If not, swap.
     if x1[cyl.axis] > x2[cyl.axis]
         t1, t2 = t2, t1
@@ -174,21 +174,21 @@ function path(cyl::Cylinder, line::Line)
 
     # Step 3.1: if x1 is outside the finite cylinder, move it to point on the x=-h/2 boundary
     if x1[cyl.axis] < -halfht
-        t1 = -(line.pt[cyl.axis]+halfht)/line.n[cyl.axis]
+        t1 = -(ray.pt[cyl.axis]+halfht)/ray.n[cyl.axis]
     end
     # Step 3.2: if x2 is outside the finite cylinder, move it to point on the x=+h/2 boundary
     if x2[cyl.axis] > +halfht
-        t2 = -(line.pt[cyl.axis]-halfht)/line.n[cyl.axis]
+        t2 = -(ray.pt[cyl.axis]-halfht)/ray.n[cyl.axis]
     end
     abs(t2-t1)
 end
 
-function path(s::Sphere, line::Line)
+function path(s::Sphere, ray::Ray)
     ZeroLength = zero(s.radius)
     # Find the points (if any) where t allows ||pt+n⋅t|| = r^2
     # a = 1.0
-    b = 2dot(line.n, line.pt)
-    c = dot(line.pt, line.pt) - s.rad2
+    b = 2dot(ray.n, ray.pt)
+    c = dot(ray.pt, ray.pt) - s.rad2
     disc = b^2 - 4c
     disc ≤ ZeroLength^2 && return ZeroLength # negative or 0 discriminant means doesn't have finite-length intersection
 
