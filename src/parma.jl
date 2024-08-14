@@ -1,3 +1,5 @@
+using FastGaussQuadrature
+
 @enum ParmaParticle begin
     ppNeutron = 0
     ppProton = 1
@@ -70,7 +72,10 @@ Get the angular differential cosmic ray spectrum for particle `particleID` at `e
 angle `cosθ`, also given the W-index `Windex`, the cutoff rigidity `cutoffRigidity` (in GV), the atmospheric
 depth `atmosphericDepth` (g/cm^2) and the local geometry parameter.
 
-The angular differential spectrum units are events per (cm^2⋅s⋅MeV/n⋅sr).
+The angular differential spectrum units are sr^{-1}. This is a factor meant to multiply the "omnidirectional" spectrum.
+
+WARNING: It is designed to have an integral over all 4π sr equal to 1, but owing to the details of the smoothing over various
+parameters over energy, it will not actually accomplish this. It's on you to renormalize it appropriately.
 
 `geometryParam` should be in [0, 1] if a water weight-fraction, or 10 for no earth, or 100 for the "black hole" model,
 or in [-10, 0] for pilot, and g<-10 for cabin. I don't know what that all means. Use 0.15.
@@ -79,8 +84,26 @@ function Parma_getSpecAngFinal(particleID::ParmaParticle, Windex::Real, cutoffRi
     atmosphericDepth::Real, energy::Real, geometryParam::Real, cosθ::Real)
     iangParticle = Dict(ppNeutron=>1, ppProton=>2, ppHelium=>3, ppµminus=>4, ppµplus=>4, ppElectron=>5, ppPositron=>5, ppGamma=>6)
     id = get(iangParticle, particleID, 0)
-    spectrum = @ccall library._Z18getSpecAngFinalCppidddddd(id::Cint, Windex::Cdouble, cutoffRigidity::Cdouble, 
+    angular_weighting = @ccall library._Z18getSpecAngFinalCppidddddd(id::Cint, Windex::Cdouble, cutoffRigidity::Cdouble, 
         atmosphericDepth::Cdouble, energy::Cdouble, geometryParam::Cdouble, cosθ::Cdouble)::Cdouble
+end
+
+function Parma_angdist(particleID::ParmaParticle, Windex::Real, cutoffRigidity::Real, 
+    atmosphericDepth::Real, energy::Real, geometryParam::Real, cosθ::Real)
+    f(x) = Parma_getSpecAngFinal(particleID, Windex, cutoffRigidity, atmosphericDepth, energy, geometryParam, x)
+    
+    x, w = gausslegendre(150)
+    integral = 2π * dot(f.(x), w)
+    f(cosθ)/integral
+end
+
+function Parma_angdist(particleID::ParmaParticle, Windex::Real, cutoffRigidity::Real, 
+    atmosphericDepth::Real, energy::Real, geometryParam::Real, cosθ::AbstractArray)
+    f(x) = Parma_getSpecAngFinal(particleID, Windex, cutoffRigidity, atmosphericDepth, energy, geometryParam, x)
+    
+    x, w = gausslegendre(150)
+    integral = 2π * dot(f.(x), w)
+    f.(cosθ)/integral
 end
 
 """
@@ -114,18 +137,20 @@ struct CRObserver
     end
 end
 
-function CRspectrum(energy::Real, obs::CRObserver, id::ParmaParticle)
-    Parma_getSpec(id, obs.Windex, obs.cutoffRigidity, obs.depth, energy, obs.g)
-end
-
-function CRspectrum(energy::Real, depth::Real, obs::CRObserver, id::ParmaParticle)
+function CRspectrum(energy::Real, obs::CRObserver, id::ParmaParticle; depth::Real=obs.depth)
     Parma_getSpec(id, obs.Windex, obs.cutoffRigidity, depth, energy, obs.g)
 end
 
-function CRangularSpectrum(energy::Real, cosθ::Real, depth::Real, obs::CRObserver, id::ParmaParticle)
-    Parma_getSpecAngFinal(id, obs.Windex, obs.cutoffRigidity, depth, energy, obs.g, cosθ)
+function CRspectrum(energy::AbsrtactArray, obs::CRObserver, id::ParmaParticle; depth::Real=obs.depth)
+    f(e) = Parma_getSpec(id, obs.Windex, obs.cutoffRigidity, depth, e, obs.g)
+    f.(energy)
 end
 
-function CRangularSpectrum(energy::Real, cosθ::Real, obs::CRObserver, id::ParmaParticle)
-    Parma_getSpecAngFinal(id, obs.Windex, obs.cutoffRigidity, obs.depth, energy, obs.g, cosθ)
+function CRangularSpectrum(energy::Real, cosθ::Real, obs::CRObserver, id::ParmaParticle; depth::Real=obs.depth)
+    Parma_angdist(id, obs.Windex, obs.cutoffRigidity, depth, energy, obs.g, cosθ) * CRspectrum(energy, obs, id, depth=depth)
 end
+
+function CRangularSpectrum(energy::Real, cosθ::AbstractArray, obs::CRObserver, id::ParmaParticle; depth::Real=obs.depth)
+    Parma_angdist(id, obs.Windex, obs.cutoffRigidity, depth, energy, obs.g, cosθ) * CRspectrum(energy, obs, id, depth=depth)
+end
+

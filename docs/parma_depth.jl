@@ -1,4 +1,5 @@
-using MuscRat, PyPlot, Quadrature
+using MuscRat, PyPlot, Quadrature, FastGaussQuadrature
+using LinearAlgebra
 
 function flux_vs_depth(obs::MuscRat.CRObserver, id::MuscRat.ParmaParticle)
     alt = LinRange(0, 10, 151)
@@ -105,7 +106,7 @@ function plot_spectrum(obs::MuscRat.CRObserver, depth::Real)
         )
     labels = ("µ-", "µ+", "e-", "e+", "γ", "p", "n")
     for (id, label) in zip(ids, labels)
-        s = [MuscRat.CRspectrum(x, depth, obs, id) for x in E]
+        s = [MuscRat.CRspectrum(x, obs, id, depth=depth) for x in E]
         if id == MuscRat.ppGamma
             bin = argmax(E .> 0.511) - 1
             binwid = E[bin+1]-E[bin]
@@ -124,14 +125,12 @@ end
 
 
 function compare_angle(obs::MuscRat.CRObserver)
-    id = MuscRat.ppµminus
-    E = 1e4
-    s1 = MuscRat.CRspectrum(E, obs, id)
-    cosθ = LinRange(0, 1, 101)
-    weights = ones(length(cosθ))
-    weights[1] = weights[end] = 0.5
-    s2 = [MuscRat.CRangularSpectrum(E, x, obs, id) for x in cosθ]
-    dx = (cosθ[end]-cosθ[1])/(length(cosθ)-1)
-    s2integrated = 2π * dx * sum(weights.*s2)
-    s1, s2integrated
+    cosθ, w = gausslegendre(65)
+    id = MuscRat.ppProton
+    for E in 10 .^ LinRange(0, 6, 7)
+        s1 = MuscRat.CRspectrum(E, obs, id)
+        s2points = MuscRat.CRangularSpectrum(E, cosθ, obs, id)
+        s2 = 2π * dot(s2points, w)
+        @show s1, s2/s1
+    end
 end
