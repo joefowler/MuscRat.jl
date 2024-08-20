@@ -320,7 +320,7 @@ function path_values(obj::Solid, cosθ::AbstractVector)
         origin = [cϕ*x0+sϕ*cθ*y0, -sϕ*x0+cθ*cϕ*y0, sθ*x0]
         # origin = [cϕ*cθ*x0-sϕ*y0, sϕ*cθ*x0+cϕ*y0, -sθ*x0]
 
-        line = Line(n, origin)
+        line = Ray(n, origin)
         L[i] = path(obj, line)
     end
     L

@@ -8,9 +8,9 @@ export Eloss_functions, dEdx, Δprob
 
 include("geometry.jl")
 include("units.jl")
-include("parma.jl")
 include("cr_spectrum.jl")
 include("cr_generator.jl")
+include("parma.jl")
 include("energy_loss.jl")
 
 end # module MuscRat
