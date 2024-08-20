@@ -188,7 +188,7 @@ function readParma(p::Particle; sealevel=false)
     readParma(project_path(localpaths[p]), masses[p])
 end
 
-function ParmaGenerator(p::Particle; Pmin=nothing, Pmax=nothing, sealevel=false)
+function OLDParmaGenerator(p::Particle; Pmin=nothing, Pmax=nothing, sealevel=false)
     Np, Nang, PminData, PmaxData, logPGeVlim, mass, cosθlim, spectrum, _, _ = readParma(p; sealevel=sealevel)
     if Pmin === nothing
         Pmin = PminData
@@ -219,6 +219,34 @@ function ParmaGenerator(p::Particle; Pmin=nothing, Pmax=nothing, sealevel=false)
     CRGenerator(Np, Nang, Pmin, Pmax, logPGeVlim, mass, cosθlim, spectrum)
 end
 
+function ParmaGenerator(p::Particle; Pmin=0.1u"MeV/c", Pmax=1.0u"TeV/c",
+    year=2022, month=05, day=22, lat=40.0, long=-105.0, alt=0.0u"m")
+
+    # Number of momentum bins: 30 or (25 per decade of P from Pmin to Pmax), whichever is larger
+    Np = 25*log10(Pmax/Pmin |> NoUnits)
+    Np = max(round(Int, Np), 30)
+    Nang = 100
+    logPGeVlim = LinRange(log(Pmin/1u"GeV/c"), log(Pmax/1u"GeV/c"), 1+Np)
+    mass = masses[p]
+    cosθlim = LinRange(0, 1, 1+Nang)
+
+    # Convert momentum to energy.
+    momentum = exp.(logPGeVlim)*1u"GeV/c"
+    C = Unitful.c
+    if mass > 0u"g"
+        totalE = C*sqrt.(momentum.^2 .+ (mass*C)^2)
+        KE = totalE .- mass*C^2
+    else
+        KE = momentum*C
+    end
+    energyMeV = KE/1u"MeV" .|> NoUnits
+    altkm = alt/1u"km" |> NoUnits
+    obs = CRObserver(year, month, day, lat, long, altkm)
+    spectrum_units = u"1/cm^2/s/MeV/sr"
+    unitless_spectrum = hcat([CRangularSpectrum(E, cosθlim, obs, p) for E in energyMeV]...)
+    spectrum = transpose(unitless_spectrum)*spectrum_units
+    CRGenerator(Np, Nang, Pmin |> u"MeV/c", Pmax |> u"MeV/c", logPGeVlim, mass, cosθlim, spectrum)
+end
 
 """
     generate(mg::CRGenerator, N)
