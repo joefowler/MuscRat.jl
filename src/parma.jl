@@ -11,7 +11,18 @@ using FastGaussQuadrature
     ppGamma = 33
 end
 
-library = "parma/parma"
+function parmaID(p::Particle)
+    p == Gamma && return ppGamma
+    p == µplus && return ppµplus
+    p == µminus && return ppµminus
+    p == Electron && return ppElectron
+    p == Positron && return ppPositron
+    p == Neutron && return ppNeutron
+    p == Proton && return ppProton
+    nothing
+end
+
+const ParmaCompiledLibrary = "parma/parma"
 
 """
     Parma_getHP(year::Integer, month::Integer, day::Integer)
@@ -19,7 +30,7 @@ library = "parma/parma"
 Return the W-index of solar activity at date `year`-`month`-`day`.
 """
 function Parma_getHP(year::Integer, month::Integer, day::Integer)
-    Windex = @ccall library._Z8getHPcppiii(year::Cint, month::Cint, day::Cint)::Cdouble
+    Windex = @ccall ParmaCompiledLibrary._Z8getHPcppiii(year::Cint, month::Cint, day::Cint)::Cdouble
 end
 
 
@@ -29,7 +40,7 @@ end
 Return the vertical cut-off rigidity (GV) at `latitude` and `longitude` (both in degrees).
 """
 function Parma_getr(latitude::Real, longitude::Real=100)
-    rigidity = @ccall library._Z7getrcppdd(latitude::Cdouble, longitude::Cdouble)::Cdouble
+    rigidity = @ccall ParmaCompiledLibrary._Z7getrcppdd(latitude::Cdouble, longitude::Cdouble)::Cdouble
 end
 
 """
@@ -42,7 +53,7 @@ If |`latitude`| ≤ 90, use NRLMSISE-00 data.
 Otherwise, use the U.S. Standard Atmosphere.
 """
 function Parma_depth(altitude::Real, latitude::Real=100)
-    depth = @ccall library._Z7getdcppdd(altitude::Cdouble, latitude::Cdouble)::Cdouble
+    depth = @ccall ParmaCompiledLibrary._Z7getdcppdd(altitude::Cdouble, latitude::Cdouble)::Cdouble
 end
 
 """
@@ -60,7 +71,7 @@ or in [-10, 0] for pilot, and g<-10 for cabin. I don't know what that all means.
 """
 function Parma_getSpec(particleID::ParmaParticle, Windex::Real, cutoffRigidity::Real, 
     atmosphericDepth::Real, energy::Real, geometryParam::Real)
-    spectrum = @ccall library._Z10getSpecCppiddddd(particleID::Cint, Windex::Cdouble, cutoffRigidity::Cdouble, 
+    spectrum = @ccall ParmaCompiledLibrary._Z10getSpecCppiddddd(particleID::Cint, Windex::Cdouble, cutoffRigidity::Cdouble, 
         atmosphericDepth::Cdouble, energy::Cdouble, geometryParam::Cdouble)::Cdouble
 end
 
@@ -84,7 +95,7 @@ function Parma_getSpecAngFinal(particleID::ParmaParticle, Windex::Real, cutoffRi
     atmosphericDepth::Real, energy::Real, geometryParam::Real, cosθ::Real)
     iangParticle = Dict(ppNeutron=>1, ppProton=>2, ppHelium=>3, ppµminus=>4, ppµplus=>4, ppElectron=>5, ppPositron=>5, ppGamma=>6)
     id = get(iangParticle, particleID, 0)
-    angular_weighting = @ccall library._Z18getSpecAngFinalCppidddddd(id::Cint, Windex::Cdouble, cutoffRigidity::Cdouble, 
+    angular_weighting = @ccall ParmaCompiledLibrary._Z18getSpecAngFinalCppidddddd(id::Cint, Windex::Cdouble, cutoffRigidity::Cdouble, 
         atmosphericDepth::Cdouble, energy::Cdouble, geometryParam::Cdouble, cosθ::Cdouble)::Cdouble
 end
 
@@ -113,7 +124,7 @@ Get the flux of 511 keV photons (cm^-2 s^-1), given the W-index `Windex`, the cu
 and the atmospheric depth `atmosphericDepth` (g/cm^2).
 """
 function Parma_get511flux(Windex::Real, cutoffRigidity::Real, atmosphericDepth::Real)
-    spectrum = @ccall library._Z13get511fluxCppddd(Windex::Cdouble, cutoffRigidity::Cdouble, 
+    spectrum = @ccall ParmaCompiledLibrary._Z13get511fluxCppddd(Windex::Cdouble, cutoffRigidity::Cdouble, 
         atmosphericDepth::Cdouble)::Cdouble
 end
 
@@ -137,20 +148,24 @@ struct CRObserver
     end
 end
 
-function CRspectrum(energy::Real, obs::CRObserver, id::ParmaParticle; depth::Real=obs.depth)
-    Parma_getSpec(id, obs.Windex, obs.cutoffRigidity, depth, energy, obs.g)
+function CRspectrum(energy::Real, obs::CRObserver, id::Particle; depth::Real=obs.depth)
+    pid = parmaID(id)
+    Parma_getSpec(pid, obs.Windex, obs.cutoffRigidity, depth, energy, obs.g)
 end
 
-function CRspectrum(energy::AbsrtactArray, obs::CRObserver, id::ParmaParticle; depth::Real=obs.depth)
-    f(e) = Parma_getSpec(id, obs.Windex, obs.cutoffRigidity, depth, e, obs.g)
+function CRspectrum(energy::AbstractArray, obs::CRObserver, id::Particle; depth::Real=obs.depth)
+    pid = parmaID(id)
+    f(e) = Parma_getSpec(pid, obs.Windex, obs.cutoffRigidity, depth, e, obs.g)
     f.(energy)
 end
 
-function CRangularSpectrum(energy::Real, cosθ::Real, obs::CRObserver, id::ParmaParticle; depth::Real=obs.depth)
-    Parma_angdist(id, obs.Windex, obs.cutoffRigidity, depth, energy, obs.g, cosθ) * CRspectrum(energy, obs, id, depth=depth)
+function CRangularSpectrum(energy::Real, cosθ::Real, obs::CRObserver, id::Particle; depth::Real=obs.depth)
+    pid = parmaID(id)
+    Parma_angdist(pid, obs.Windex, obs.cutoffRigidity, depth, energy, obs.g, cosθ) * CRspectrum(energy, obs, id, depth=depth)
 end
 
-function CRangularSpectrum(energy::Real, cosθ::AbstractArray, obs::CRObserver, id::ParmaParticle; depth::Real=obs.depth)
-    Parma_angdist(id, obs.Windex, obs.cutoffRigidity, depth, energy, obs.g, cosθ) * CRspectrum(energy, obs, id, depth=depth)
+function CRangularSpectrum(energy::Real, cosθ::AbstractArray, obs::CRObserver, id::Particle; depth::Real=obs.depth)
+    pid = parmaID(id)
+    Parma_angdist(pid, obs.Windex, obs.cutoffRigidity, depth, energy, obs.g, cosθ) * CRspectrum(energy, obs, id, depth=depth)
 end
 
