@@ -153,9 +153,9 @@ function readParma(filename::AbstractString, mass::T) where T<:Unitful.Mass
     end
     C = Unitful.c
     if mass > 0u"g"
-        p = sqrt.((KE/Unitful.c).^2 .+2KE*mass)
+        p = sqrt.((KE/C).^2 .+2KE*mass)
     else
-        p = KE/Unitful.c
+        p = KE/C
     end
 
     # Verify that the table is (approximately) evenly spaced in momentum,
