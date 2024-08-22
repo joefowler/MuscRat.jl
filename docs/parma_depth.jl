@@ -134,3 +134,12 @@ function compare_angle(obs::MuscRat.CRObserver)
         @show s1, s2/s1
     end
 end
+
+function compare_2d(obs::MuscRat.CRObserver)
+    cosθ = LinRange(-0.5, 1, 76)
+    E = 10 .^ LinRange(1, 6, 76)
+    id = MuscRat.ppProton
+    s1 = hcat([MuscRat.CRangularSpectrum(e, cosθ, obs, id, depth=1033.) for e in E]...)
+    s2 = hcat([MuscRat.CRangularSpectrum(e, cosθ, obs, id, depth=866.) for e in E]...)
+    s1, s2
+end
