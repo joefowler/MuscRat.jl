@@ -7,7 +7,7 @@
 #include <cmath>
 using namespace std;
 
-const string INPUTDIR("parma/input/");
+const string INPUTDIR(string(__PARMAPATH__)+"/input/");
 
 // **********************************************************
 double getRfromECpp(int iz, int ia, double Ek, double Em) // get Rigidity in MV from Kinetic Energy (MeV/n)

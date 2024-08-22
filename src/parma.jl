@@ -22,7 +22,7 @@ function parmaID(p::Particle)
     nothing
 end
 
-const ParmaCompiledLibrary = "parma/parma"
+const ParmaCompiledLibrary = pkgdir(@__MODULE__, "parma", "parma")
 
 """
     Parma_getHP(year::Integer, month::Integer, day::Integer)
